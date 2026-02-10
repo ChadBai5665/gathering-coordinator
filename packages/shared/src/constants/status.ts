@@ -7,10 +7,14 @@
 export const GatheringStatus = {
   /** 等待中 - 聚会已创建，等待参与者加入 */
   WAITING: 'waiting',
-  /** 进行中 - 参与者已开始出发 */
-  ACTIVE: 'active',
+  /** 推荐中 - 正在获取餐厅推荐 */
+  RECOMMENDING: 'recommending',
   /** 投票中 - 正在投票选择餐厅 */
   VOTING: 'voting',
+  /** 已确认 - 餐厅已确认，等待出发 */
+  CONFIRMED: 'confirmed',
+  /** 进行中 - 参与者已开始出发 */
+  ACTIVE: 'active',
   /** 已完成 - 聚会结束 */
   COMPLETED: 'completed',
   /** 已取消 - 聚会被取消 */
@@ -68,6 +72,12 @@ export const MessageType = {
   VOTE_RESULT: 'vote_result',
   /** 餐厅确认 */
   RESTAURANT_CONFIRMED: 'restaurant_confirmed',
+  /** 催促提醒 */
+  REMINDER: 'reminder',
+  /** 紧急催促 */
+  URGENT: 'urgent',
+  /** 里程碑（全员出发/全员到达） */
+  MILESTONE: 'milestone',
 } as const;
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
