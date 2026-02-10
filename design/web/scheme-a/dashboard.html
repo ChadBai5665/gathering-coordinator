@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gathering Dashboard - Map Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f2930d",
+                        "primary-dark": "#c27407",
+                        "secondary": "#0d94f2",
+                        "secondary-dark": "#0a75c2",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#221b10",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#2d2418",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d4d4d4; }
+        .map-pattern {
+            background-color: #f1f5f9;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px), radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 h-screen overflow-hidden flex selection:bg-primary selection:text-white">
+<aside class="w-80 h-full bg-white dark:bg-surface-dark flex flex-col border-r border-stone-200 dark:border-stone-800 relative shadow-xl z-20 shrink-0 overflow-y-auto">
+<div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-teal-500 sticky z-10"></div>
+<div class="p-8 pb-0 flex flex-col gap-6">
+<div>
+<div class="flex items-center gap-2 mb-2 text-primary">
+<span class="material-icons-round">restaurant_menu</span>
+<span class="font-bold tracking-wider uppercase text-xs">Gathering Hub</span>
+</div>
+<h1 class="text-3xl font-extrabold text-slate-900 dark:text-white leading-tight">Friday Night Bites</h1>
+<div class="mt-4 flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<span class="material-icons-round text-lg">calendar_today</span>
+<span class="font-medium">Oct 24, 2023</span>
+</div>
+</div>
+<div class="bg-stone-50 dark:bg-stone-800 rounded-xl p-5 border border-stone-100 dark:border-stone-700">
+<p class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-1">Meeting Time</p>
+<div class="flex items-baseline gap-1">
+<span class="text-4xl font-bold text-slate-800 dark:text-white">7:30</span>
+<span class="text-lg font-medium text-slate-500">PM</span>
+</div>
+<div class="mt-2 flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium bg-teal-50 dark:bg-teal-900/30 px-3 py-1.5 rounded-full w-fit">
+<span class="material-icons-round text-xs">schedule</span>
+<span>in 2 hours</span>
+</div>
+</div>
+<div class="relative group">
+<div class="absolute -inset-0.5 bg-gradient-to-r from-primary to-teal-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+<div class="relative bg-white dark:bg-stone-800 rounded-xl p-4 border border-stone-200 dark:border-stone-700 flex flex-col items-center text-center">
+<p class="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Invite Code</p>
+<div class="text-2xl font-mono font-bold tracking-widest text-slate-800 dark:text-white mb-2">829-102</div>
+<button class="w-full py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 transition-colors flex items-center justify-center gap-1">
+<span class="material-icons-round text-xs">content_copy</span>
+Copy
+</button>
+</div>
+</div>
+</div>
+<div class="px-8 py-6 flex-1">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center justify-between">
+<span>Participants</span>
+<span class="bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs py-0.5 px-2 rounded-full">5/6</span>
+</h3>
+<div class="flex flex-col gap-3">
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
+<div class="relative">
+<img alt="Participant Alex" class="w-10 h-10 rounded-full object-cover ring-2 ring-teal-500 dark:ring-teal-600" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNY4f75iWorvyeaU5rHPczEI-PI8SZwWXooMfnpyQGCeUcmJcwlZPbRZG-EuqEYtTnFmMRj58vEX0D4ZDBnyiladbVZyc3DLAz0hsrgP8S06Drkn5pAFlSAEzsvClirgVClgNCs5n6QdGoNnfBoc3X6xJZIeiclxs2IQl7J6ef2OuztT8LTsZL_1M1b_fJ6R1vxIOTPx30CbV5jHcI1HKvBFJpIbz6T3w167tvNvzFQTds2nLYd9_DKXDhdb9c2xsocLvLk5pv7UQO"/>
+<div class="absolute -bottom-1 -right-1 bg-teal-500 text-white p-0.5 rounded-full border-2 border-white dark:border-stone-800">
+<span class="material-icons-round text-[8px] block">check</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm text-slate-800 dark:text-white truncate">Alex Johnson</p>
+<p class="text-xs text-teal-600 dark:text-teal-400">Arrived</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
+<div class="relative">
+<img alt="Participant Emily" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary dark:ring-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANfQ15xhOkFj1hwdm0kwEgMqSgQMKt7pinarhUCi7liCnMggYmG4upAJXXGbBoOXJWW8m3x4DIY2UCPrt9PJlT93p-65ORHAZWJ3LIkcs7Udv4FiTFKpVRgj-LhmLRjjU7ovU_3Y-DaxpYRA3q4ticHX5L_5FKsl4cKhVBmz76Udd-5BE06KKa6bjF9qRs2ctcbNbfwAKRTC-R4Siu29uQryA6GlifGjev41g2-a68TUOjPC8ejM45-456oyRIwEReyeu4YvUr0HNs"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full border-2 border-white dark:border-stone-800 animate-pulse">
+<span class="material-icons-round text-[8px] block">directions_car</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm text-slate-800 dark:text-white truncate">Emily Davis</p>
+<p class="text-xs text-primary">On the way (12m)</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors opacity-75">
+<div class="relative">
+<img alt="Participant Michael" class="w-10 h-10 rounded-full object-cover grayscale ring-2 ring-stone-200 dark:ring-stone-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCukN4xVl_mhlM_Xxxj-rxki6zGHfCCrx_8ZGm8pO8V1ifT-TUyfe9YSpJAMlNSE-HHV1KIzR9TrmYlgUH74rIqH506JxyNNYoqXI6fTDX0xfTltwUc9bqQboy0y6J5eFXYfi0eOGbPU036fc2fFZ-y8139w6Y0qlmxiCZi9OWqKlO1QJKC_dqaNjyMpxO8mHnif1Fq4pphV_EIUFvyGnye0Bjw275pO5bWon-nCRm0Frh5Kqd9ap6rBRheD9NZacES9QIOHJyOFfch"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm text-slate-800 dark:text-white truncate">Michael Brown</p>
+<p class="text-xs text-stone-500">Not started</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
+<div class="relative">
+<img alt="Participant Lisa" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary dark:ring-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSP5ArQKuqEvEwGBb8PwggXg3R3iEPIzoqoAfdd-3Dn-bv08_gwzRG4xFxe8_hBCCa_CgpGWpGbyqzWXJUtawgh67DUBExL5HUOHXQbzj2nx4O03UbOuz3H5sG65dbeD_lHS8YN0vVwiX3ZRTQar4opxdL5s_mhsSJADpHKnwle5XlNFzRXF19RKgwwrISzFGaKrN75KXQmmyNkqfAe-BfCf597O5bgGdkBfxMso6mSDRVfRemdCY8qKvuxJViZw-PE_gm1A5o9_fz"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full border-2 border-white dark:border-stone-800 animate-pulse">
+<span class="material-icons-round text-[8px] block">directions_run</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm text-slate-800 dark:text-white truncate">Lisa Wong</p>
+<p class="text-xs text-primary">On the way (5m)</p>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
+<div class="relative">
+<img alt="Participant David" class="w-10 h-10 rounded-full object-cover ring-2 ring-teal-500 dark:ring-teal-600" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbTE0cKGFRZ3vL226mNNZ18Yd_ZVSOxbEOkVVPfmVW4xnGuZma7F7OGu7NXmxgx5_aFOMGkRk1ouw3R-t9vDLqubwHPOUiTNhsWvsTFxSQxO5ARASG1US7ZXfaFHR3Re0nyDRkdcT6s0N-Ci1GcokbQ3iwV2oRiLQZ3nPO6JO_mlcOBLlN5bDomDcwciKf4gCbO3BLL98qIqM69kfkhhGOLt871jehCBBcVvS-k-ndIPvN-GUwoyC6QT7pcSBBR5CGq-Ct2kzs7qHV"/>
+<div class="absolute -bottom-1 -right-1 bg-teal-500 text-white p-0.5 rounded-full border-2 border-white dark:border-stone-800">
+<span class="material-icons-round text-[8px] block">check</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-bold text-sm text-slate-800 dark:text-white truncate">David Kim</p>
+<p class="text-xs text-teal-600 dark:text-teal-400">Arrived</p>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-t border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 mt-auto sticky bottom-0 backdrop-blur-sm">
+<div class="flex items-center gap-3">
+<img alt="Profile picture of Sarah" class="w-10 h-10 rounded-full border-2 border-white dark:border-stone-700 shadow-sm object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0pIrKAPQqaFoRUzR58eqh5RfCTmCDmARgUOd7ryz6cW3fKp-Uka_cIUFUHqv_SajBwJUvAnyx0M9IOANMjmwZI6m9_lWJNTCHkipAKxarc4bV2HTbPUnL_Esex6rnj9zmaBbo4uXnOyiBU3kD3pLJ69x0KU1fp2b0C-doNEC2PErjFmbmeaVRyE0jrXRZVzIuk-Ow8Wcv5DAM4dTSanmrkrTBEkkcfPyrhSmz1m9WDEPeMsDTOk5-ncWeRCFX8QXIk1RyZezBpbFL"/>
+<div class="overflow-hidden">
+<p class="text-sm font-bold text-slate-800 dark:text-white truncate">Sarah Chen</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Host</p>
+</div>
+<button class="ml-auto text-slate-400 hover:text-primary transition-colors">
+<span class="material-icons-round">settings</span>
+</button>
+</div>
+</div>
+</aside>
+<main class="flex-1 h-full overflow-hidden relative flex flex-col">
+<div class="absolute top-0 right-0 w-1/3 h-1/3 bg-teal-100/50 dark:bg-teal-900/10 rounded-full blur-3xl -z-10 transform translate-x-1/2 -translate-y-1/2"></div>
+<div class="absolute bottom-0 left-0 w-1/4 h-1/4 bg-primary/10 rounded-full blur-3xl -z-10 transform -translate-x-1/4 translate-y-1/4"></div>
+<section class="p-8 pb-4 shrink-0">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center shadow-lg shadow-primary/30">
+<span class="material-icons-round text-white">auto_awesome</span>
+</div>
+<div>
+<h2 class="text-xl font-bold text-slate-900 dark:text-white">AI Recommendations</h2>
+<p class="text-sm text-slate-500 dark:text-slate-400">Based on group taste: <span class="text-primary font-medium">Spicy</span> &amp; <span class="text-teal-600 dark:text-teal-400 font-medium">Vegetarian Friendly</span></p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-400 transition-colors">
+<span class="material-icons-round text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-400 transition-colors">
+<span class="material-icons-round text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<div class="bg-white dark:bg-surface-dark rounded-2xl p-3 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-stone-100 dark:border-stone-800 group">
+<div class="relative h-32 rounded-xl overflow-hidden mb-3">
+<img alt="Interior of a modern restaurant with warm lighting" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCzbkoBlxaGfm6SLlfTSLU-Jys7zIgY5VTs8zUYDm0xJn7a9vKekgH6jdsgm1ifLpL1bVGjZEhNg_YUHDPlhqT6bMbBt12GchINW8-aFK4-cfcPtSgrrJ0GgxjBMeoqXZi4Xgy3Cdyo-pfr3_jEKNXvW-NfzQFdUfXugGTUtoV6oBwhkuRN8NhdMW-5SgEx43laDgcxqzhgbevhIAz7uHtPLj5niIEjX6J_cNDbYOl5unz7x8J40Kllc5aDJXK5cTPJRZIuVsTLD-z"/>
+<div class="absolute top-2 right-2 bg-white/90 dark:bg-black/80 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+<span class="material-icons-round text-primary text-sm">star</span>
+<span class="text-xs font-bold">4.8</span>
+</div>
+</div>
+<div class="px-2">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h3 class="font-bold text-base text-slate-800 dark:text-white">Saffron Lounge</h3>
+<p class="text-[10px] text-slate-500 dark:text-slate-400">Indian Fusion • $</p>
+</div>
+</div>
+<button class="w-full mt-2 py-2 rounded-lg bg-slate-100 dark:bg-stone-700 hover:bg-slate-200 dark:hover:bg-stone-600 text-slate-600 dark:text-slate-200 font-bold text-xs transition-colors">Select Venue</button>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-dark rounded-2xl p-3 shadow-lg ring-2 ring-primary ring-offset-2 ring-offset-background-light dark:ring-offset-background-dark transform -translate-y-1 border border-transparent">
+<div class="relative h-32 rounded-xl overflow-hidden mb-3">
+<div class="absolute inset-0 bg-primary/20 z-10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+<span class="text-white font-bold drop-shadow-md">View Menu</span>
+</div>
+<img alt="Gourmet pizza on a wooden board" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH1Qt4tXVOtqkkSaioG3Fgd6Azg5zK6RUCK59a4Hp1ksmIpsbZq212ju1RyzV2kxRkj4rEeBJP9B_cASrmclRfO50TMw6bD03iYESTz4FHRol8I_h7Ull_7Ji4RDv61lavvzZWqJnDxzkmbequ-lD4o3FOqfk7BugPQV3ekvt9hQ5df66aznhc5WOLRDJMRXxXIHm8UWsomJpb4bhMGrucFZ0OYCCyM0PlcfRjSWCsr9KaUniPDuD9XE7ttw_x4TakhhVeZfXVjubt"/>
+<div class="absolute top-2 right-2 bg-primary text-white px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm z-20">
+<span class="material-icons-round text-xs">recommend</span>
+<span class="text-[10px] font-bold">Top Match</span>
+</div>
+</div>
+<div class="px-2">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h3 class="font-bold text-base text-slate-800 dark:text-white">Urban Crust</h3>
+<p class="text-[10px] text-slate-500 dark:text-slate-400">Modern Italian • $$</p>
+</div>
+</div>
+<button class="w-full mt-2 py-2 rounded-lg bg-primary text-white font-bold text-xs shadow-lg shadow-primary/30 hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
+<span class="material-icons-round text-xs">check_circle</span>
+Selected
+</button>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-dark rounded-2xl p-3 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-stone-100 dark:border-stone-800 group">
+<div class="relative h-32 rounded-xl overflow-hidden mb-3">
+<img alt="Fresh salad bowl with various ingredients" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbDmqCscSNBiwuDLU6twvLvVqFpdY8YFrHG5lK72_5YUq41Yu-GNTnR6HfhCP0Da2-vLNMwPZDuKMUL2TWbkzGk4ntIoj6-ZTcCo_b0s6ZRQkRZa8TJbYAe8cdRS1ZQcF6-a5hlNuI9fWeHs7chKeDtBHroDHGuKyqmmYPeJ40qyt0ycao4Ro_2YJyA7fXSO--I299EinwyIsXGRef6n20KY4YYWKExgfKIYgNE0T0aJCgXclLz31wx_Kdmr_cU5Ioi6eErPKmADpq"/>
+<div class="absolute top-2 right-2 bg-white/90 dark:bg-black/80 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+<span class="material-icons-round text-yellow-500 text-sm">star</span>
+<span class="text-xs font-bold">4.2</span>
+</div>
+</div>
+<div class="px-2">
+<div class="flex justify-between items-start mb-1">
+<div>
+<h3 class="font-bold text-base text-slate-800 dark:text-white">Green Garden</h3>
+<p class="text-[10px] text-slate-500 dark:text-slate-400">Salad &amp; Bowls • $</p>
+</div>
+</div>
+<button class="w-full mt-2 py-2 rounded-lg bg-slate-100 dark:bg-stone-700 hover:bg-slate-200 dark:hover:bg-stone-600 text-slate-600 dark:text-slate-200 font-bold text-xs transition-colors">Select Venue</button>
+</div>
+</div>
+</div>
+</section>
+<div class="px-8 py-2 shrink-0">
+<div class="relative flex items-center justify-center">
+<div aria-hidden="true" class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-stone-200 dark:border-stone-700"></div>
+</div>
+<div class="relative bg-background-light dark:bg-background-dark px-6 flex items-center gap-3">
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Time until gathering</span>
+<div class="font-mono text-xl font-bold text-primary tabular-nums tracking-tight">02 : 14 : 59</div>
+</div>
+</div>
+</div>
+<section class="flex-1 p-8 pt-4 h-full min-h-0 flex flex-col">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">Live Map Overview</h2>
+<div class="flex gap-2">
+<button class="bg-white dark:bg-surface-dark border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800">
+<span class="material-icons-round text-sm">layers</span>Traffic</button>
+<button class="bg-white dark:bg-surface-dark border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800">
+<span class="material-icons-round text-sm">my_location</span>Recenter</button>
+</div>
+</div>
+<div class="relative w-full h-full rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-700 shadow-inner bg-stone-100 dark:bg-stone-800 map-pattern group">
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23000000\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center group/marker cursor-pointer">
+<div class="bg-primary text-white p-2 rounded-full shadow-lg shadow-primary/40 ring-4 ring-white dark:ring-surface-dark animate-bounce">
+<span class="material-icons-round text-2xl">restaurant</span>
+</div>
+<div class="mt-2 bg-white dark:bg-surface-dark px-3 py-1.5 rounded-lg shadow-xl border border-stone-200 dark:border-stone-700 text-xs font-bold whitespace-nowrap opacity-0 group-hover/marker:opacity-100 transition-opacity">Urban Crust</div>
+</div>
+<div class="absolute top-1/3 left-1/4 transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
+<div class="relative">
+<img class="w-10 h-10 rounded-full border-2 border-white dark:border-stone-800 shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANfQ15xhOkFj1hwdm0kwEgMqSgQMKt7pinarhUCi7liCnMggYmG4upAJXXGbBoOXJWW8m3x4DIY2UCPrt9PJlT93p-65ORHAZWJ3LIkcs7Udv4FiTFKpVRgj-LhmLRjjU7ovU_3Y-DaxpYRA3q4ticHX5L_5FKsl4cKhVBmz76Udd-5BE06KKa6bjF9qRs2ctcbNbfwAKRTC-R4Siu29uQryA6GlifGjev41g2-a68TUOjPC8ejM45-456oyRIwEReyeu4YvUr0HNs"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full border border-white dark:border-stone-800">
+<span class="material-icons-round text-[10px] block">directions_car</span>
+</div>
+</div>
+<div class="mt-1 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm border border-stone-200 dark:border-stone-700 text-[10px] font-bold whitespace-nowrap">Emily (12m)</div>
+</div>
+<div class="absolute bottom-1/3 right-1/4 transform -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
+<div class="relative">
+<img class="w-10 h-10 rounded-full border-2 border-white dark:border-stone-800 shadow-md" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSP5ArQKuqEvEwGBb8PwggXg3R3iEPIzoqoAfdd-3Dn-bv08_gwzRG4xFxe8_hBCCa_CgpGWpGbyqzWXJUtawgh67DUBExL5HUOHXQbzj2nx4O03UbOuz3H5sG65dbeD_lHS8YN0vVwiX3ZRTQar4opxdL5s_mhsSJADpHKnwle5XlNFzRXF19RKgwwrISzFGaKrN75KXQmmyNkqfAe-BfCf597O5bgGdkBfxMso6mSDRVfRemdCY8qKvuxJViZw-PE_gm1A5o9_fz"/>
+<div class="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full border border-white dark:border-stone-800">
+<span class="material-icons-round text-[10px] block">directions_run</span>
+</div>
+</div>
+<div class="mt-1 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm border border-stone-200 dark:border-stone-700 text-[10px] font-bold whitespace-nowrap">Lisa (5m)</div>
+</div>
+<div class="absolute bottom-4 right-4 flex flex-col gap-2">
+<button class="w-8 h-8 bg-white dark:bg-surface-dark rounded-lg shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700">
+<span class="material-icons-round text-lg">add</span>
+</button>
+<button class="w-8 h-8 bg-white dark:bg-surface-dark rounded-lg shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700">
+<span class="material-icons-round text-lg">remove</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+</body></html>
