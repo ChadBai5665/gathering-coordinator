@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGatheringStore } from '@/stores/gathering.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocation as useGeoLocation } from '@/hooks/useLocation';
 import {
   GatheringStatus,
   ParticipantStatus,
@@ -39,6 +40,9 @@ export function DashboardPage() {
     startPolling,
     stopPolling,
   } = useGatheringStore();
+
+  // 自动请求位置
+  const { location: _userLocation } = useGeoLocation(true);
 
   useEffect(() => {
     if (!code) {
@@ -841,108 +845,133 @@ function MapSection({
   restaurants: Restaurant[];
   participants: Participant[];
 }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState('');
+
   const confirmed = restaurants.find((r) => r.is_confirmed);
   const departedOrArrived = participants.filter(
     (p) => p.status === ParticipantStatus.DEPARTED || p.status === ParticipantStatus.ARRIVED,
   );
+
+  // 加载地图
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initMap() {
+      try {
+        const { loadAMap } = await import('@/services/amap');
+        await loadAMap();
+        if (cancelled || !mapRef.current) return;
+
+        const AMap = (window as any).AMap;
+        const map = new AMap.Map(mapRef.current, {
+          zoom: 13,
+          center: confirmed?.location
+            ? [confirmed.location.lng, confirmed.location.lat]
+            : [116.397428, 39.90923], // 默认北京
+          mapStyle: 'amap://styles/light',
+        });
+
+        mapInstanceRef.current = map;
+        setMapReady(true);
+      } catch {
+        if (!cancelled) setMapError('地图加载失败');
+      }
+    }
+
+    initMap();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 更新标记
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const AMap = (window as any).AMap;
+    const map = mapInstanceRef.current;
+
+    // 清除旧标记
+    map.clearMap();
+
+    const points: any[] = [];
+
+    // 餐厅标记
+    if (confirmed) {
+      const marker = new AMap.Marker({
+        position: [confirmed.location.lng, confirmed.location.lat],
+        title: confirmed.name,
+        content: `<div style="background:#f2930d;color:white;padding:6px;border-radius:50%;display:flex;align-items:center;justify-content:center;width:36px;height:36px;box-shadow:0 2px 8px rgba(242,147,13,0.4)"><span class="material-icons-round" style="font-size:20px">restaurant</span></div>`,
+        offset: new AMap.Pixel(-18, -18),
+      });
+      map.add(marker);
+      points.push([confirmed.location.lng, confirmed.location.lat]);
+
+      // 信息窗体
+      const infoWindow = new AMap.InfoWindow({
+        content: `<div style="padding:8px;font-size:13px"><b>${confirmed.name}</b><br/>${confirmed.address || confirmed.type || ''}</div>`,
+        offset: new AMap.Pixel(0, -24),
+      });
+      marker.on('click', () => infoWindow.open(map, marker.getPosition()));
+    }
+
+    // 所有有位置的餐厅（未确认的）
+    restaurants.filter(r => !r.is_confirmed && r.location).forEach((r) => {
+      const marker = new AMap.Marker({
+        position: [r.location.lng, r.location.lat],
+        title: r.name,
+        content: `<div style="background:#0d94f2;color:white;padding:4px;border-radius:50%;display:flex;align-items:center;justify-content:center;width:28px;height:28px;box-shadow:0 2px 6px rgba(13,148,242,0.3)"><span class="material-icons-round" style="font-size:16px">restaurant</span></div>`,
+        offset: new AMap.Pixel(-14, -14),
+      });
+      map.add(marker);
+      points.push([r.location.lng, r.location.lat]);
+    });
+
+    // 参与者标记
+    departedOrArrived.forEach((p) => {
+      if (!p.location) return;
+      const color = p.status === ParticipantStatus.ARRIVED ? '#14b8a6' : '#f2930d';
+      const icon = p.status === ParticipantStatus.ARRIVED ? 'check_circle' : 'directions_car';
+      const marker = new AMap.Marker({
+        position: [p.location.lng, p.location.lat],
+        title: p.nickname,
+        content: `<div style="background:${color};color:white;padding:4px;border-radius:50%;display:flex;align-items:center;justify-content:center;width:32px;height:32px;box-shadow:0 2px 6px ${color}66;border:2px solid white"><span class="material-icons-round" style="font-size:18px">${icon}</span></div>`,
+        offset: new AMap.Pixel(-16, -16),
+      });
+      map.add(marker);
+      points.push([p.location.lng, p.location.lat]);
+    });
+
+    // 自适应视野
+    if (points.length > 0) {
+      map.setFitView(null, false, [60, 60, 60, 60]);
+    }
+  }, [mapReady, confirmed, restaurants, departedOrArrived]);
 
   return (
     <section className="flex-1 p-8 pt-4 min-h-[400px] flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">实时地图</h2>
         <div className="flex gap-2">
-          <button className="bg-white dark:bg-surface-dark border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
-            <span className="material-icons-round text-sm">layers</span>路况
-          </button>
-          <button className="bg-white dark:bg-surface-dark border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
+          <button
+            onClick={() => mapInstanceRef.current?.setFitView(null, false, [60, 60, 60, 60])}
+            className="bg-white dark:bg-surface-dark border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+          >
             <span className="material-icons-round text-sm">my_location</span>居中
           </button>
         </div>
       </div>
 
-      <div className="relative w-full flex-1 min-h-[320px] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-700 shadow-inner bg-stone-100 dark:bg-stone-800">
-        {/* Dot pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.15] dark:opacity-[0.08] pointer-events-none"
-          style={{
-            backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px), radial-gradient(#94a3b8 1px, transparent 1px)',
-            backgroundSize: '20px 20px',
-            backgroundPosition: '0 0, 10px 10px',
-          }}
-        />
-
-        {/* Restaurant marker (center) */}
-        {confirmed && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center group/marker cursor-pointer">
-            <div className="bg-primary text-white p-2 rounded-full shadow-lg shadow-primary/40 ring-4 ring-white dark:ring-surface-dark animate-bounce">
-              <span className="material-icons-round text-2xl">restaurant</span>
-            </div>
-            <div className="mt-2 bg-white dark:bg-surface-dark px-3 py-1.5 rounded-lg shadow-xl border border-stone-200 dark:border-stone-700 text-xs font-bold whitespace-nowrap opacity-0 group-hover/marker:opacity-100 transition-opacity">
-              {confirmed.name}
-            </div>
-          </div>
-        )}
-
-        {/* Participant markers */}
-        {departedOrArrived.slice(0, 4).map((p, i) => {
-          const positions: React.CSSProperties[] = [
-            { top: '33%', left: '25%' },
-            { bottom: '33%', right: '25%' },
-            { top: '25%', right: '35%' },
-            { bottom: '25%', left: '35%' },
-          ];
-          const pos = positions[i % positions.length];
-
-          return (
-            <div
-              key={p.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center"
-              style={pos}
-            >
-              <div className="relative">
-                <div
-                  className="w-10 h-10 rounded-full border-2 border-white dark:border-stone-800 shadow-md flex items-center justify-center text-white font-bold text-sm"
-                  style={{ backgroundColor: stringToColor(p.nickname) }}
-                >
-                  {p.nickname.charAt(0)}
-                </div>
-                <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full border border-white dark:border-stone-800 text-white ${
-                  p.status === ParticipantStatus.ARRIVED ? 'bg-teal-500' : 'bg-primary'
-                }`}>
-                  <span className="material-icons-round text-[10px] block">
-                    {p.status === ParticipantStatus.ARRIVED ? 'check' : 'directions_car'}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-1 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm border border-stone-200 dark:border-stone-700 text-[10px] font-bold whitespace-nowrap">
-                {p.nickname}
-                {p.travel_duration != null && p.status === ParticipantStatus.DEPARTED && (
-                  <span> ({formatDuration(p.travel_duration)})</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Placeholder if no confirmed restaurant */}
-        {!confirmed && (
-          <div className="absolute inset-0 flex items-center justify-center">
+      <div className="relative w-full flex-1 min-h-[320px] rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-700 shadow-inner">
+        <div ref={mapRef} className="absolute inset-0" />
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-100 dark:bg-stone-800">
             <div className="text-center">
               <span className="material-icons-round text-4xl text-stone-400 mb-2 block">map</span>
-              <p className="text-sm text-stone-500 dark:text-stone-400">此处将集成高德地图</p>
+              <p className="text-sm text-stone-500">{mapError}</p>
             </div>
           </div>
         )}
-
-        {/* Zoom controls */}
-        <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-          <button className="w-8 h-8 bg-white dark:bg-surface-dark rounded-lg shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700">
-            <span className="material-icons-round text-lg">add</span>
-          </button>
-          <button className="w-8 h-8 bg-white dark:bg-surface-dark rounded-lg shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700">
-            <span className="material-icons-round text-lg">remove</span>
-          </button>
-        </div>
       </div>
     </section>
   );

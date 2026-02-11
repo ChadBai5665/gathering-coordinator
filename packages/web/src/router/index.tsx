@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui';
 // Lazy-loaded pages
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const JoinPage = lazy(() => import('@/pages/JoinPage'));
 const DashboardPage = lazy(() => import('@/pages/Dashboard'));
 const MyGatheringsPage = lazy(() => import('@/pages/MyGatheringsPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
@@ -73,6 +74,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="/join/:code" element={<JoinPage />} />
         {/* 404 fallback */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

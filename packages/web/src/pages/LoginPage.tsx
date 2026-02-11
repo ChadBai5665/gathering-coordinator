@@ -21,7 +21,13 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(nickname.trim());
-      navigate('/');
+      const pendingCode = sessionStorage.getItem('pendingJoinCode');
+      if (pendingCode) {
+        sessionStorage.removeItem('pendingJoinCode');
+        navigate(`/join/${pendingCode}`, { replace: true });
+      } else {
+        navigate('/');
+      }
     } catch {
       setError('登录失败，请重试');
     } finally {
