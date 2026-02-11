@@ -18,8 +18,8 @@ export {
   MIN_TASTE_COUNT,
   ErrorCode,
   ERROR_MESSAGES,
-} from './constants';
-export type { TasteOption } from './constants';
+} from './constants/index.js';
+export type { TasteOption } from './constants/index.js';
 
 // ── 类型 ──
 export type {
@@ -54,7 +54,7 @@ export type {
   PaginatedData,
   Timestamps,
   Optional,
-} from './types';
+} from './types/index.js';
 
 // ── 工具函数 ──
 export {
@@ -81,5 +81,5 @@ export {
   NICKNAME_MAX_LENGTH,
   GATHERING_NAME_MIN_LENGTH,
   GATHERING_NAME_MAX_LENGTH,
-} from './utils';
-export type { ValidationResult } from './utils';
+} from './utils/index.js';
+export type { ValidationResult } from './utils/index.js';
