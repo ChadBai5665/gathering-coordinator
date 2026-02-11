@@ -164,13 +164,21 @@ ontheway/
 
 ## 📚 文档
 
+### 产品与设计
 - [产品需求文档](docs/PRD.md)
 - [技术架构](docs/architecture.md)
 - [API 接口规范](docs/api-spec.md)
 - [数据模型](docs/data-model.md)
 - [设计系统](docs/design-system.md)
+
+### 使用与部署
 - [用户使用手册](docs/user-guide.md)
 - [部署指南](docs/deploy.md)
+
+### 开发复盘
+- [开发计划](docs/development-plan.md) — 完整的 5 个 Phase 计划与技术架构
+- [开发进度](docs/progress.md) — 每个阶段的完成情况与关键决策
+- [部署日志](docs/deployment-log.md) — Vercel 部署完整过程与问题解决
 
 ---
 
