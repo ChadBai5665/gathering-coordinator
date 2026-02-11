@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCenter, calculateDistance, getDefaultCenter, isInChina } from '../geo';
-import type { Location } from '../../types/common';
+import { calculateCenter, calculateDistance, getDefaultCenter, isInChina } from '../geo.js';
+import type { Location } from '../../types/common.js';
 
 describe('geo', () => {
   describe('calculateCenter', () => {

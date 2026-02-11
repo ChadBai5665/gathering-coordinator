@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateInviteCode, isValidInviteCode, formatInviteCode } from '../invite-code';
+import { generateInviteCode, isValidInviteCode, formatInviteCode } from '../invite-code.js';
 
 describe('invite-code', () => {
   describe('generateInviteCode', () => {

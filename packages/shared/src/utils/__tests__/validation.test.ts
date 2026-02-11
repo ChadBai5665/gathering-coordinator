@@ -9,7 +9,7 @@ import {
   NICKNAME_MAX_LENGTH,
   GATHERING_NAME_MIN_LENGTH,
   GATHERING_NAME_MAX_LENGTH,
-} from '../validation';
+} from '../validation.js';
 
 describe('validation', () => {
   describe('validateNickname', () => {

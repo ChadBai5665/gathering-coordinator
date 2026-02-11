@@ -3,7 +3,7 @@
  * 对应 restaurants 表及高德 API 返回结构
  */
 
-import type { Location } from './common';
+import type { Location } from './common.js';
 
 /** 单个参与者的行程信息（嵌入 travel_infos JSONB） */
 export interface TravelInfo {

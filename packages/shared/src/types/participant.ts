@@ -3,8 +3,8 @@
  * 对应 participants 表及相关业务逻辑
  */
 
-import type { ParticipantStatus } from '../constants/status';
-import type { Location } from './common';
+import type { ParticipantStatus } from '../constants/status.js';
+import type { Location } from './common.js';
 
 /** 提醒发送记录（JSONB） */
 export interface RemindersSent {

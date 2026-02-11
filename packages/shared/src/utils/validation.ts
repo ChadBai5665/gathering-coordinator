@@ -3,8 +3,8 @@
  * 昵称、口味、聚会名称等业务规则校验
  */
 
-import { TASTE_OPTIONS, MAX_TASTE_COUNT } from '../constants/tastes';
-import type { TasteOption } from '../constants/tastes';
+import { TASTE_OPTIONS, MAX_TASTE_COUNT } from '../constants/tastes.js';
+import type { TasteOption } from '../constants/tastes.js';
 
 /** 昵称最小长度 */
 export const NICKNAME_MIN_LENGTH = 1;

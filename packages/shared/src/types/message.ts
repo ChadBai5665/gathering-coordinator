@@ -3,7 +3,7 @@
  * 对应 messages 表，用于聚会内的实时消息流
  */
 
-import type { MessageType } from '../constants/status';
+import type { MessageType } from '../constants/status.js';
 
 /** 消息实体（对应 messages 表） */
 export interface Message {

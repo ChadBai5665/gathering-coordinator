@@ -3,7 +3,7 @@
  * 对应 votes / vote_records 表
  */
 
-import type { VoteStatus } from '../constants/status';
+import type { VoteStatus } from '../constants/status.js';
 
 /** 投票实体（对应 votes 表） */
 export interface Vote {

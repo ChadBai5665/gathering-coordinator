@@ -3,7 +3,7 @@
  * 对应 gatherings 表及相关业务逻辑
  */
 
-import type { GatheringStatus } from '../constants/status';
+import type { GatheringStatus } from '../constants/status.js';
 
 /** 聚会实体（对应 gatherings 表） */
 export interface Gathering {

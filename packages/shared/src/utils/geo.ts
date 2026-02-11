@@ -3,7 +3,7 @@
  * 中心点计算、距离计算等纯函数
  */
 
-import type { Location } from '../types/common';
+import type { Location } from '../types/common.js';
 
 /** 北京默认坐标（天安门） */
 const DEFAULT_CENTER: Location = {

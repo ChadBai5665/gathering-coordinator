@@ -7,7 +7,7 @@ import {
   formatTime,
   isExpired,
   shouldRemindDeparture,
-} from '../time';
+} from '../time.js';
 
 describe('time', () => {
   describe('calculateDepartureTime', () => {
