@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from '@/router';
 import { ToastContainer } from '@/components/ui';
 import { useToast } from '@/hooks/useToast';
+import { ErrorBoundary } from '@/utils/error-boundary';
 
 function AppContent() {
   const { toasts, removeToast } = useToast();
@@ -16,8 +17,10 @@ function AppContent() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
