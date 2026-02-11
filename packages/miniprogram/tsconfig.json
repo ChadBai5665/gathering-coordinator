@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2017",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2017"],
+    "outDir": "./miniprogram",
+    "rootDir": "./miniprogram",
+    "declaration": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["miniprogram-api-typings"],
+    "paths": {
+      "@/*": ["./miniprogram/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["miniprogram/**/*.ts"],
+  "exclude": ["node_modules"]
+}

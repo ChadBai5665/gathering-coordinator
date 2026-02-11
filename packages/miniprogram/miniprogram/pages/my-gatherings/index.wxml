@@ -1,0 +1,54 @@
+<view class="my-gatherings-page">
+  <view class="tabs">
+    <view
+      class="tab-item {{activeTab === 'all' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="all"
+    >
+      全部
+    </view>
+    <view
+      class="tab-item {{activeTab === 'active' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="active"
+    >
+      进行中
+    </view>
+    <view
+      class="tab-item {{activeTab === 'completed' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="completed"
+    >
+      已完成
+    </view>
+    <view
+      class="tab-item {{activeTab === 'cancelled' ? 'active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="cancelled"
+    >
+      已取消
+    </view>
+  </view>
+
+  <view class="content">
+    <view wx:if="{{loading}}" class="loading">
+      <text>加载中...</text>
+    </view>
+
+    <view wx:elif="{{filteredGatherings.length === 0}}" class="empty">
+      <empty-state
+        icon="calendar"
+        title="暂无聚会"
+        description="创建或加入一个聚会开始吧"
+      />
+    </view>
+
+    <view wx:else class="gathering-list">
+      <gathering-card
+        wx:for="{{filteredGatherings}}"
+        wx:key="id"
+        gathering="{{item}}"
+      />
+    </view>
+  </view>
+</view>

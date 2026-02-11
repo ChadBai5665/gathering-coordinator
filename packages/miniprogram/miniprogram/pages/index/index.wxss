@@ -1,0 +1,146 @@
+.index-page {
+  min-height: 100vh;
+  background-color: #f8f7f5;
+  padding: 32rpx;
+}
+
+.page-header {
+  margin-bottom: 32rpx;
+}
+
+.greeting {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.action-card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24rpx;
+}
+
+.form-group {
+  margin-bottom: 24rpx;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #6b7280;
+  margin-bottom: 16rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  background-color: #f8f7f5;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 16rpx;
+  padding: 0 32rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.picker-input {
+  display: flex;
+  align-items: center;
+  color: #1a1a1a;
+}
+
+.code-input {
+  text-align: center;
+  letter-spacing: 8rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.form-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.btn-primary {
+  width: 100%;
+  height: 88rpx;
+  background-color: #f2930d;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  margin: 0;
+  padding: 0;
+  line-height: 88rpx;
+}
+
+.btn-primary[disabled] {
+  background-color: #d1d5db;
+  color: #9ca3af;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-secondary {
+  width: 100%;
+  height: 88rpx;
+  background-color: #0d94f2;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  margin: 0;
+  padding: 0;
+  line-height: 88rpx;
+}
+
+.btn-secondary[disabled] {
+  background-color: #d1d5db;
+  color: #9ca3af;
+}
+
+.btn-secondary::after {
+  border: none;
+}
+
+.section {
+  margin-top: 48rpx;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.section-link {
+  font-size: 28rpx;
+  color: #f2930d;
+}
+
+.gathering-list {
+  /* gathering-card 组件自带 margin-bottom */
+}

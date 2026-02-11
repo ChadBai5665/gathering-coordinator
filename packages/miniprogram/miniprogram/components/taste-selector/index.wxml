@@ -1,0 +1,16 @@
+<view class="taste-selector">
+  <view class="taste-list">
+    <view
+      wx:for="{{tasteOptions}}"
+      wx:key="*this"
+      class="taste-item {{isSelected(item) ? 'selected' : ''}}"
+      bindtap="onTasteToggle"
+      data-taste="{{item}}"
+    >
+      {{item}}
+    </view>
+  </view>
+  <view class="taste-hint" wx:if="{{max > 0}}">
+    已选 {{selected.length}}/{{max}}
+  </view>
+</view>

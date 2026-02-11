@@ -1,0 +1,58 @@
+.status-tag {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  border-radius: 32rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.status-waiting {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-recommending {
+  background-color: #dbeafe;
+  color: #0d94f2;
+}
+
+.status-voting {
+  background-color: #ffedd5;
+  color: #f2930d;
+}
+
+.status-confirmed {
+  background-color: #ccfbf1;
+  color: #14b8a6;
+}
+
+.status-active {
+  background-color: #dbeafe;
+  color: #0d94f2;
+}
+
+.status-completed {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-cancelled {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.status-joined {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-departed {
+  background-color: #dbeafe;
+  color: #0d94f2;
+}
+
+.status-arrived {
+  background-color: #ccfbf1;
+  color: #14b8a6;
+}

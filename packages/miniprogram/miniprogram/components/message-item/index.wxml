@@ -1,0 +1,7 @@
+<view class="message-item message-{{messageClass}}">
+  <view class="message-icon">{{iconText}}</view>
+  <view class="message-content">
+    <view class="message-text">{{message.text}}</view>
+    <view class="message-time">{{formatTime(message.created_at)}}</view>
+  </view>
+</view>

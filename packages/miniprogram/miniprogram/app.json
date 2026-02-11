@@ -1,0 +1,60 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/login/index",
+    "pages/dashboard/index",
+    "pages/my-gatherings/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f2930d",
+    "navigationBarTitleText": "碰个头",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f8f7f5",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6b7280",
+    "selectedColor": "#f2930d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "assets/icons/home.png",
+        "selectedIconPath": "assets/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/my-gatherings/index",
+        "text": "我的聚会",
+        "iconPath": "assets/icons/list.png",
+        "selectedIconPath": "assets/icons/list-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "assets/icons/user.png",
+        "selectedIconPath": "assets/icons/user-active.png"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于计算到餐厅的距离和出行时间"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"],
+  "usingComponents": {
+    "gathering-card": "/components/gathering-card/index",
+    "restaurant-card": "/components/restaurant-card/index",
+    "empty-state": "/components/empty-state/index",
+    "status-tag": "/components/status-tag/index",
+    "taste-selector": "/components/taste-selector/index",
+    "message-item": "/components/message-item/index",
+    "nav-bar": "/components/nav-bar/index"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

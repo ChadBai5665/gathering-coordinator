@@ -1,0 +1,15 @@
+{
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": false,
+    "useCompilerPlugins": ["typescript"]
+  },
+  "appid": "wx0000000000000000",
+  "projectname": "ontheway-miniprogram",
+  "description": "碰个头 - 多人聚会协调小程序"
+}

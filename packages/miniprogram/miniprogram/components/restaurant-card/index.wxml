@@ -1,0 +1,39 @@
+<view class="restaurant-card">
+  <view class="card-rank rank-{{rank <= 3 ? rank : 'other'}}">
+    #{{rank}}
+  </view>
+
+  <view class="card-content">
+    <view class="restaurant-header">
+      <view class="restaurant-name">{{restaurant.name}}</view>
+      <view class="restaurant-type">{{restaurant.type}}</view>
+    </view>
+
+    <view class="restaurant-info">
+      <view class="info-row">
+        <text class="info-label">评分</text>
+        <text class="info-value">{{restaurant.rating || '暂无'}} ⭐</text>
+      </view>
+      <view class="info-row" wx:if="{{restaurant.cost}}">
+        <text class="info-label">人均</text>
+        <text class="info-value">¥{{restaurant.cost}}</text>
+      </view>
+    </view>
+
+    <view class="score-bar">
+      <view class="score-label">综合得分</view>
+      <view class="score-progress">
+        <view class="score-fill" style="width: {{restaurant.score}}%"></view>
+      </view>
+      <view class="score-value">{{restaurant.score}}</view>
+    </view>
+
+    <button
+      wx:if="{{showVoteBtn}}"
+      class="vote-btn"
+      bindtap="onVote"
+    >
+      投票选择
+    </button>
+  </view>
+</view>

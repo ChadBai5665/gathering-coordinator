@@ -1,0 +1,50 @@
+<view class="profile-page">
+  <view class="profile-header">
+    <view class="avatar">
+      <text class="avatar-text">{{userInfo.nickname.charAt(0)}}</text>
+    </view>
+    <view class="user-info">
+      <view class="nickname">{{userInfo.nickname}}</view>
+      <view class="user-id">ID: {{userInfo.id.slice(0, 8)}}</view>
+    </view>
+    <view class="edit-btn" bindtap="onEditProfile">
+      <text>✏️</text>
+    </view>
+  </view>
+
+  <view class="menu-section">
+    <view class="menu-item" bindtap="onDefaultTastes">
+      <view class="menu-left">
+        <text class="menu-icon">🍽️</text>
+        <text class="menu-label">默认口味偏好</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="onNotificationSettings">
+      <view class="menu-left">
+        <text class="menu-icon">🔔</text>
+        <text class="menu-label">通知设置</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="onAbout">
+      <view class="menu-left">
+        <text class="menu-icon">ℹ️</text>
+        <text class="menu-label">关于碰个头</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="logout-section">
+    <button class="logout-btn" bindtap="onLogout">
+      退出登录
+    </button>
+  </view>
+
+  <view class="version">
+    <text class="version-text">v1.0.0</text>
+  </view>
+</view>

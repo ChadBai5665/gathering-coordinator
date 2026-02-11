@@ -1,0 +1,52 @@
+.my-gatherings-page {
+  min-height: 100vh;
+  background-color: #f8f7f5;
+}
+
+.tabs {
+  display: flex;
+  background-color: #ffffff;
+  padding: 16rpx 32rpx;
+  gap: 16rpx;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #6b7280;
+  border-radius: 16rpx;
+  transition: all 0.2s;
+}
+
+.tab-item.active {
+  background-color: #ffedd5;
+  color: #f2930d;
+  font-weight: 600;
+}
+
+.content {
+  padding: 32rpx;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80rpx 0;
+  font-size: 28rpx;
+  color: #9ca3af;
+}
+
+.empty {
+  padding: 40rpx 0;
+}
+
+.gathering-list {
+  /* gathering-card 组件自带 margin-bottom */
+}

@@ -1,0 +1,77 @@
+<view class="index-page">
+  <view class="page-header">
+    <text class="greeting">Hi, {{nickname}} 👋</text>
+  </view>
+
+  <!-- 创建聚会卡片 -->
+  <view class="action-card">
+    <view class="card-title">创建聚会</view>
+    <view class="form-group">
+      <input
+        class="form-input"
+        placeholder="聚会名称（如：周末聚餐）"
+        bindinput="onGatheringNameInput"
+        value="{{gatheringName}}"
+        maxlength="50"
+      />
+    </view>
+
+    <view class="form-row">
+      <view class="form-group flex-1">
+        <picker mode="date" value="{{targetDate}}" bindchange="onDateChange">
+          <view class="form-input picker-input">
+            {{targetDate || '选择日期'}}
+          </view>
+        </picker>
+      </view>
+      <view class="form-group flex-1">
+        <picker mode="time" value="{{targetTime}}" bindchange="onTimeChange">
+          <view class="form-input picker-input">
+            {{targetTime || '选择时间'}}
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="form-group">
+      <view class="form-label">口味偏好（可选）</view>
+      <taste-selector selected="{{selectedTastes}}" bindchange="onTasteChange" />
+    </view>
+
+    <button class="btn-primary" bindtap="onCreateGathering" disabled="{{loading}}">
+      创建聚会
+    </button>
+  </view>
+
+  <!-- 加入聚会卡片 -->
+  <view class="action-card">
+    <view class="card-title">加入聚会</view>
+    <view class="form-group">
+      <input
+        class="form-input code-input"
+        placeholder="输入6位邀请码"
+        bindinput="onInviteCodeInput"
+        value="{{inviteCode}}"
+        maxlength="6"
+      />
+    </view>
+    <button class="btn-secondary" bindtap="onJoinGathering" disabled="{{loading}}">
+      加入聚会
+    </button>
+  </view>
+
+  <!-- 进行中的聚会 -->
+  <view class="section" wx:if="{{myGatherings.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">进行中的聚会</text>
+      <text class="section-link" bindtap="onViewAllGatherings">查看全部 ›</text>
+    </view>
+    <view class="gathering-list">
+      <gathering-card
+        wx:for="{{myGatherings}}"
+        wx:key="id"
+        gathering="{{item}}"
+      />
+    </view>
+  </view>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "碰个头",
+  "usingComponents": {
+    "taste-selector": "/components/taste-selector/index",
+    "gathering-card": "/components/gathering-card/index"
+  }
+}

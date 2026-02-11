@@ -1,0 +1,139 @@
+<view class="dashboard-page">
+  <nav-bar title="{{state.gathering.name}}" />
+
+  <view class="content" wx:if="{{!loading && state}}">
+    <!-- 聚会信息区 -->
+    <view class="info-card">
+      <view class="info-header">
+        <status-tag status="{{state.gathering.status}}" type="gathering" />
+        <view class="share-btn" bindtap="onShareAppMessage">
+          <text>📤</text>
+        </view>
+      </view>
+
+      <view class="info-row">
+        <text class="info-label">目标时间</text>
+        <text class="info-value">{{formatTime(state.gathering.target_time)}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="info-label">邀请码</text>
+        <view class="code-box" bindtap="onCopyCode">
+          <text class="code-text">{{state.gathering.code}}</text>
+          <text class="copy-icon">📋</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 参与者列表 -->
+    <view class="section">
+      <view class="section-title">参与者 ({{state.participants.length}})</view>
+      <view class="participants">
+        <view class="participant-item" wx:for="{{state.participants}}" wx:key="id">
+          <view class="participant-avatar">{{item.nickname.charAt(0)}}</view>
+          <view class="participant-info">
+            <text class="participant-name">{{item.nickname}}</text>
+            <status-tag status="{{item.status}}" type="participant" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 餐厅推荐列表 -->
+    <view class="section" wx:if="{{state.restaurants.length > 0}}">
+      <view class="section-title">餐厅推荐</view>
+      <restaurant-card
+        wx:for="{{state.restaurants}}"
+        wx:key="id"
+        restaurant="{{item}}"
+        rank="{{index + 1}}"
+        showVoteBtn="{{state.gathering.status === 'recommending'}}"
+        bindvote="onVoteRestaurant"
+      />
+    </view>
+
+    <!-- 投票区 -->
+    <view class="vote-card" wx:if="{{state.activeVote}}">
+      <view class="vote-header">
+        <text class="vote-title">🗳️ 投票进行中</text>
+      </view>
+      <view class="vote-restaurant">
+        <text class="vote-restaurant-name">{{state.restaurants[state.activeVote.restaurant_index].name}}</text>
+      </view>
+      <view class="vote-progress">
+        <view class="vote-stats">
+          <text class="vote-agree">👍 {{state.activeVote.agree_count}}</text>
+          <text class="vote-disagree">👎 {{state.activeVote.disagree_count}}</text>
+        </view>
+        <view class="vote-bar">
+          <view class="vote-bar-fill" style="width: {{state.activeVote.agree_count / state.activeVote.total_voters * 100}}%"></view>
+        </view>
+      </view>
+      <view class="vote-actions" wx:if="{{!state.activeVote.has_voted}}">
+        <button class="vote-btn vote-agree" bindtap="onCastVote" data-agree="{{true}}">
+          同意
+        </button>
+        <button class="vote-btn vote-disagree" bindtap="onCastVote" data-agree="{{false}}">
+          反对
+        </button>
+      </view>
+      <view class="vote-voted" wx:else>
+        <text>✅ 你已投票</text>
+      </view>
+    </view>
+
+    <!-- 地图区 -->
+    <view class="section">
+      <view class="section-title">位置地图</view>
+      <map
+        class="map"
+        latitude="{{mapCenterLat}}"
+        longitude="{{mapCenterLng}}"
+        markers="{{mapMarkers}}"
+        show-location
+      />
+    </view>
+
+    <!-- 消息流 -->
+    <view class="section">
+      <view class="section-title">消息动态</view>
+      <scroll-view class="messages" scroll-y scroll-into-view="msg-{{state.messages.length - 1}}">
+        <message-item
+          wx:for="{{state.messages}}"
+          wx:key="id"
+          id="msg-{{index}}"
+          message="{{item}}"
+        />
+      </scroll-view>
+    </view>
+
+    <!-- 操作栏 -->
+    <view class="action-bar">
+      <button
+        wx:if="{{state.gathering.status === 'waiting'}}"
+        class="action-btn primary"
+        bindtap="onRecommend"
+      >
+        获取推荐
+      </button>
+      <button
+        wx:elif="{{state.gathering.status === 'confirmed'}}"
+        class="action-btn primary"
+        bindtap="onDepart"
+      >
+        我已出发
+      </button>
+      <button
+        wx:elif="{{state.gathering.status === 'active'}}"
+        class="action-btn primary"
+        bindtap="onArrive"
+      >
+        我已到达
+      </button>
+    </view>
+  </view>
+
+  <view class="loading-view" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index",
+    "status-tag": "/components/status-tag/index",
+    "restaurant-card": "/components/restaurant-card/index",
+    "message-item": "/components/message-item/index"
+  }
+}

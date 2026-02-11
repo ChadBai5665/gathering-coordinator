@@ -1,0 +1,27 @@
+<view class="login-page">
+  <view class="login-header">
+    <view class="logo">🍽️</view>
+    <text class="app-name">碰个头</text>
+    <text class="app-desc">和朋友碰个头，一起吃点好的</text>
+  </view>
+
+  <view class="login-form">
+    <input
+      class="nickname-input"
+      placeholder="输入你的昵称"
+      bindinput="onNicknameInput"
+      value="{{nickname}}"
+      maxlength="20"
+    />
+    <button
+      class="btn-primary"
+      bindtap="onGuestLogin"
+      disabled="{{!nickname || loading}}"
+    >
+      {{loading ? '进入中...' : '快速进入'}}
+    </button>
+    <button class="btn-wechat" bindtap="onWechatLogin">
+      <text class="icon-wechat">微信登录</text>
+    </button>
+  </view>
+</view>
