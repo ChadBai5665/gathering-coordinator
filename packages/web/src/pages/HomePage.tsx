@@ -211,7 +211,7 @@ function CreateGatheringCard() {
           <button
             onClick={handleCreate}
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gradient-to-r from-primary-500 to-primary-700 hover:from-primary-700 hover:to-primary-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <span className="material-icons-round animate-spin">progress_activity</span>

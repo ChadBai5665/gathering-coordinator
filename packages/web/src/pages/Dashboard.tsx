@@ -452,7 +452,7 @@ function RecommendationsSection({
           <button
             onClick={handleRecommend}
             disabled={recommending || gatheringStatus === GatheringStatus.RECOMMENDING}
-            className="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center gap-2 mx-auto"
+            className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center gap-2 mx-auto"
           >
             {recommending || gatheringStatus === GatheringStatus.RECOMMENDING ? (
               <>
@@ -1000,7 +1000,7 @@ function ActionBar({
           <button
             onClick={handleDepart}
             disabled={acting}
-            className="w-full py-4 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-xl text-lg transition-all shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center justify-center gap-3"
+            className="w-full py-4 bg-gradient-to-r from-primary-500 to-primary-700 text-white font-bold rounded-xl text-lg transition-all shadow-lg shadow-primary/30 disabled:opacity-50 flex items-center justify-center gap-3"
           >
             {acting ? (
               <span className="material-icons-round animate-spin">progress_activity</span>

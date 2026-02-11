@@ -13,7 +13,7 @@ export default function NotFoundPage() {
         <p className="text-lg text-slate-500 dark:text-slate-400 mb-8">页面不存在</p>
         <button
           onClick={() => navigate('/')}
-          className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/30"
+          className="px-6 py-3 bg-primary-500 hover:bg-primary-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-primary/30"
         >
           返回首页
         </button>

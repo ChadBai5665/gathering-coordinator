@@ -4,8 +4,21 @@
  */
 
 import dotenv from 'dotenv';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
 
-dotenv.config();
+// 从 cwd 向上查找 .env 文件
+function findEnvFile(): string | undefined {
+  let dir = process.cwd();
+  for (let i = 0; i < 5; i++) {
+    const envPath = resolve(dir, '.env');
+    if (existsSync(envPath)) return envPath;
+    dir = resolve(dir, '..');
+  }
+  return undefined;
+}
+
+dotenv.config({ path: findEnvFile() });
 
 /** 应用配置接口 */
 export interface AppConfig {

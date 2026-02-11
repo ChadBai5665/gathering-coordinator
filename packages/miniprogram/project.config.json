@@ -7,9 +7,33 @@
     "postcss": true,
     "minified": true,
     "uglifyFileName": false,
-    "useCompilerPlugins": ["typescript"]
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "compileWorklet": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
-  "appid": "wx0000000000000000",
+  "appid": "wx772ba33ea38b883f",
   "projectname": "ontheway-miniprogram",
-  "description": "碰个头 - 多人聚会协调小程序"
+  "description": "碰个头 - 多人聚会协调小程序",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

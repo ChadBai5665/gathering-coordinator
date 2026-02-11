@@ -7,6 +7,7 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
+          DEFAULT: '#f2930d',
           50: '#fef8ec',
           100: '#fdecc9',
           200: '#fbd78e',
@@ -20,6 +21,7 @@ const config: Config = {
           950: '#432302',
         },
         secondary: {
+          DEFAULT: '#0d94f2',
           50: '#eef8ff',
           100: '#d9eeff',
           200: '#bce2ff',
@@ -33,6 +35,7 @@ const config: Config = {
           950: '#0b2a47',
         },
         teal: {
+          DEFAULT: '#14b8a6',
           50: '#f0fdfa',
           100: '#ccfbf1',
           200: '#99f6e4',
@@ -46,6 +49,7 @@ const config: Config = {
           950: '#042f2e',
         },
         danger: {
+          DEFAULT: '#ef4444',
           50: '#fef2f2',
           100: '#fee2e2',
           200: '#fecaca',

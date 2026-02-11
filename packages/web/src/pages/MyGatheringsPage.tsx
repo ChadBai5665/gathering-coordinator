@@ -137,7 +137,7 @@ export default function MyGatheringsPage() {
             <p className="text-slate-500 dark:text-slate-400 mb-4">{error}</p>
             <button
               onClick={fetchGatherings}
-              className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-dark transition-colors"
+              className="px-4 py-2 bg-primary-500 text-white rounded-lg font-semibold text-sm hover:bg-primary-700 transition-colors"
             >
               重试
             </button>
