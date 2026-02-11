@@ -1,10 +1,15 @@
 {
-  "buildCommand": "pnpm build:shared && pnpm build:web",
+  "buildCommand": "pnpm build:shared && pnpm build:web && pnpm build:server",
   "outputDirectory": "packages/web/dist",
   "framework": "vite",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
