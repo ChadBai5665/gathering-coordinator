@@ -3,20 +3,20 @@ export type {
   CreateGatheringParams,
   JoinGatheringParams,
   GatheringDetail,
-} from './gathering';
+} from './gathering.js';
 
 export type {
   Participant,
   RemindersSent,
   UpdateLocationParams,
   UpdateTastesParams,
-} from './participant';
+} from './participant.js';
 
 export type {
   Restaurant,
   TravelInfo,
   SearchRestaurantParams,
-} from './restaurant';
+} from './restaurant.js';
 
 export type {
   Vote,
@@ -24,19 +24,19 @@ export type {
   CreateVoteParams,
   CastVoteParams,
   VoteDetail,
-} from './vote';
+} from './vote.js';
 
 export type {
   Message,
   RealtimeMessagePayload,
-} from './message';
+} from './message.js';
 
 export type {
   UserProfile,
   UserPreferences,
   WxLoginParams,
   AuthResponse,
-} from './auth';
+} from './auth.js';
 
 export type {
   Location,
@@ -48,4 +48,4 @@ export type {
   PaginatedData,
   Timestamps,
   Optional,
-} from './common';
+} from './common.js';

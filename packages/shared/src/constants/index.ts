@@ -7,16 +7,16 @@ export {
   VOTE_STATUS_VALUES,
   MessageType,
   MESSAGE_TYPE_VALUES,
-} from './status';
+} from './status.js';
 
 export {
   TASTE_OPTIONS,
   MAX_TASTE_COUNT,
   MIN_TASTE_COUNT,
-} from './tastes';
-export type { TasteOption } from './tastes';
+} from './tastes.js';
+export type { TasteOption } from './tastes.js';
 
 export {
   ErrorCode,
   ERROR_MESSAGES,
-} from './errors';
+} from './errors.js';

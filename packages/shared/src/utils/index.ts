@@ -2,14 +2,14 @@ export {
   generateInviteCode,
   isValidInviteCode,
   formatInviteCode,
-} from './invite-code';
+} from './invite-code.js';
 
 export {
   calculateCenter,
   calculateDistance,
   getDefaultCenter,
   isInChina,
-} from './geo';
+} from './geo.js';
 
 export {
   calculateDepartureTime,
@@ -19,7 +19,7 @@ export {
   formatTime,
   isExpired,
   shouldRemindDeparture,
-} from './time';
+} from './time.js';
 
 export {
   validateNickname,
@@ -31,5 +31,5 @@ export {
   NICKNAME_MAX_LENGTH,
   GATHERING_NAME_MIN_LENGTH,
   GATHERING_NAME_MAX_LENGTH,
-} from './validation';
-export type { ValidationResult } from './validation';
+} from './validation.js';
+export type { ValidationResult } from './validation.js';
