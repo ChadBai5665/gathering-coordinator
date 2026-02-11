@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useGatheringStore } from '@/stores/gathering.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocation as useGeoLocation } from '@/hooks/useLocation';
+import * as api from '@/services/api';
 import {
   GatheringStatus,
   ParticipantStatus,
@@ -42,7 +43,16 @@ export function DashboardPage() {
   } = useGatheringStore();
 
   // 自动请求位置
-  const { location: _userLocation } = useGeoLocation(true);
+  const { location: userLocation } = useGeoLocation(true);
+
+  // 上传位置到后端
+  useEffect(() => {
+    if (userLocation && code) {
+      api.updateLocation(code, userLocation).catch((err) => {
+        console.error('更新位置失败:', err);
+      });
+    }
+  }, [userLocation, code]);
 
   useEffect(() => {
     if (!code) {

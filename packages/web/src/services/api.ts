@@ -106,6 +106,13 @@ export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'c
   });
 }
 
+export function updateLocation(code: string, location: { lng: number; lat: number }): Promise<Participant> {
+  return request<Participant>(`/gatherings/${code}/location`, {
+    method: 'PATCH',
+    body: JSON.stringify(location),
+  });
+}
+
 // ── Restaurants ──
 
 export function recommend(code: string): Promise<Restaurant[]> {
