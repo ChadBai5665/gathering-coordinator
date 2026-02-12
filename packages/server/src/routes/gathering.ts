@@ -860,48 +860,6 @@ router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, ne
   }
 });
 
-/**
- * PATCH /api/gatherings/:code/location
- * 更新参与者位置
- */
-router.patch('/:code/location', async (req, res, next) => {
-  try {
-    const userId = req.user!.id;
-    const gathering = await getGatheringByCode(req.params.code);
-
-    // 查询参与者
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED);
-    }
-
-    // 验证位置数据
-    const locationSchema = z.object({
-      lng: z.number().min(-180).max(180),
-      lat: z.number().min(-90).max(90),
-    });
-
-    const location = locationSchema.parse(req.body);
-
-    // 更新位置
-    const { data: updated, error } = await supabaseAdmin
-      .from('participants')
-      .update({ location })
-      .eq('id', myParticipant.id)
-      .select()
-      .single();
-
-    if (error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `更新位置失败: ${error.message}`);
-    }
-
-    await bumpVersion(gathering.id);
-
-    res.json({ success: true, data: updated as Participant });
-  } catch (err) {
-    next(err);
-  }
-});
 
 /**
  * POST /api/gatherings/:code/depart
