@@ -477,6 +477,10 @@ router.post('/:code/join', validate(joinGatheringSchema), async (req, res, next)
       .single();
 
     if (pErr) {
+      // 处理并发加入导致的唯一约束冲突
+      if (pErr.code === '23505') {
+        throw new AppError(400, ErrorCode.ALREADY_JOINED);
+      }
       throw new AppError(500, ErrorCode.UNKNOWN, `加入聚会失败: ${pErr.message}`);
     }
 
@@ -585,6 +589,7 @@ router.post('/:code/recommend', async (req, res, next) => {
       .eq('gathering_id', gathering.id);
 
     // 写入新推荐
+    let insertedRestaurants: Restaurant[] = [];
     if (candidates.length > 0) {
       const rows = candidates.map((c) => ({
         gathering_id: gathering.id,
@@ -600,7 +605,17 @@ router.post('/:code/recommend', async (req, res, next) => {
         is_confirmed: false,
       }));
 
-      await supabaseAdmin.from('restaurants').insert(rows);
+      const { data: inserted, error: iErr } = await supabaseAdmin
+        .from('restaurants')
+        .insert(rows)
+        .select();
+
+      if (iErr) {
+        throw new AppError(500, ErrorCode.UNKNOWN, `写入推荐餐厅失败: ${iErr.message}`);
+      }
+
+      insertedRestaurants = (inserted || []) as Restaurant[];
+      insertedRestaurants.sort((a, b) => (b.score || 0) - (a.score || 0));
     }
 
     // 恢复状态为 waiting
@@ -618,7 +633,7 @@ router.post('/:code/recommend', async (req, res, next) => {
       `已推荐 ${candidates.length} 家餐厅，快来投票选择吧！`,
     );
 
-    res.json({ success: true, data: candidates });
+    res.json({ success: true, data: insertedRestaurants });
   } catch (err) {
     next(err);
   }

@@ -47,7 +47,7 @@
         wx:key="id"
         restaurant="{{item}}"
         rank="{{index + 1}}"
-        showVoteBtn="{{state.gathering.status === 'recommending'}}"
+        showVoteBtn="{{state.gathering.status === 'waiting'}}"
         bindvote="onVoteRestaurant"
       />
     </view>

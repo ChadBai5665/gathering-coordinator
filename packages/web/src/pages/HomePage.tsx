@@ -305,11 +305,11 @@ function JoinGatheringCard() {
         tastes: selectedTastes,
       });
       navigate(`/dashboard/${code}`);
-    } catch {
-      setError('加入聚会失败，请检查邀请码');
-    } finally {
-      setLoading(false);
-    }
+      } catch (error: any) {
+        setError(error?.message || '加入聚会失败，请检查邀请码');
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (
