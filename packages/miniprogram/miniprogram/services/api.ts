@@ -60,23 +60,39 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // 调试日志：请求信息
+  const requestUrl = `${getBaseUrl()}${path}`;
+  console.log('[API Request] ===== START =====');
+  console.log('[API Request] URL:', requestUrl);
+  console.log('[API Request] Method:', options.method || 'GET');
+  console.log('[API Request] Data:', options.data);
+  console.log('[API Request] Data Type:', typeof options.data);
+  console.log('[API Request] Headers:', headers);
+  console.log('[API Request] ===== END =====');
+
   return new Promise((resolve, reject) => {
     wx.request({
-      url: `${getBaseUrl()}${path}`,
+      url: requestUrl,
       method: options.method as any || 'GET',
       data: options.data,
       header: headers,
       success: (res) => {
+        console.log('[API Response] Status:', res.statusCode);
+        console.log('[API Response] Data:', res.data);
+
         const json = res.data as ApiResponse<T>;
 
         if (!json.success) {
+          console.error('[API Error] Code:', json.code, 'Message:', json.message);
           reject(new ApiError(json.code, json.message, res.statusCode));
           return;
         }
 
+        console.log('[API Success] Data:', json.data);
         resolve(json.data);
       },
       fail: (err) => {
+        console.error('[API Fail] Error:', err.errMsg);
         reject(new ApiError('NETWORK_ERROR', err.errMsg));
       },
     });
@@ -86,6 +102,13 @@ async function request<T>(
 // ── Auth ──
 
 export function guestLogin(nickname: string): Promise<AuthResponse> {
+  console.log('[Guest Login] ===== START =====');
+  console.log('[Guest Login] Input nickname:', nickname);
+  console.log('[Guest Login] Nickname type:', typeof nickname);
+  console.log('[Guest Login] Nickname length:', nickname.length);
+  console.log('[Guest Login] Nickname charCodes:', Array.from(nickname).map(c => c.charCodeAt(0)));
+  console.log('[Guest Login] ===== END =====');
+
   return request<AuthResponse>('/auth/guest', {
     method: 'POST',
     data: { nickname },
@@ -121,6 +144,21 @@ export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'c
   return request<Participant>(`/gatherings/${code}/join`, {
     method: 'POST',
     data: params,
+  });
+}
+
+export function updateLocation(
+  code: string,
+  location: { lat: number; lng: number },
+  locationName?: string
+): Promise<Participant> {
+  return request<Participant>(`/gatherings/${code}/location`, {
+    method: 'PATCH',
+    data: {
+      lat: location.lat,
+      lng: location.lng,
+      location_name: locationName,
+    },
   });
 }
 

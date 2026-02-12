@@ -75,6 +75,12 @@ const castVoteSchema = z.object({
   agree: z.boolean(),
 });
 
+const updateLocationSchema = z.object({
+  lng: z.number().min(-180).max(180),
+  lat: z.number().min(-90).max(90),
+  location_name: z.string().optional(),
+});
+
 // ── 工具函数 ──
 
 /**
@@ -431,6 +437,46 @@ router.post('/:code/join', validate(joinGatheringSchema), async (req, res, next)
     await bumpVersion(gathering.id);
 
     res.status(201).json({ success: true, data: participant as Participant });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/gatherings/:code/location
+ * 更新当前用户的位置信息
+ */
+router.patch('/:code/location', validate(updateLocationSchema), async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+    const body = req.body as z.infer<typeof updateLocationSchema>;
+
+    // 检查是否为参与者
+    const myParticipant = await getMyParticipant(gathering.id, userId);
+    if (!myParticipant) {
+      throw new AppError(403, ErrorCode.NOT_JOINED, '你还未加入该聚会');
+    }
+
+    // 更新位置
+    const { data: updated, error: uErr } = await supabaseAdmin
+      .from('participants')
+      .update({
+        location: { lng: body.lng, lat: body.lat },
+        location_name: body.location_name || null,
+      })
+      .eq('id', myParticipant.id)
+      .select()
+      .single();
+
+    if (uErr || !updated) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `更新位置失败: ${uErr?.message}`);
+    }
+
+    // 递增版本号
+    await bumpVersion(gathering.id);
+
+    res.json({ success: true, data: updated as Participant });
   } catch (err) {
     next(err);
   }

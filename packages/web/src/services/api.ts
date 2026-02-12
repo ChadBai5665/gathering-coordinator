@@ -106,10 +106,18 @@ export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'c
   });
 }
 
-export function updateLocation(code: string, location: { lng: number; lat: number }): Promise<Participant> {
+export function updateLocation(
+  code: string,
+  location: { lng: number; lat: number },
+  locationName?: string
+): Promise<Participant> {
   return request<Participant>(`/gatherings/${code}/location`, {
     method: 'PATCH',
-    body: JSON.stringify(location),
+    body: JSON.stringify({
+      lng: location.lng,
+      lat: location.lat,
+      location_name: locationName,
+    }),
   });
 }
 

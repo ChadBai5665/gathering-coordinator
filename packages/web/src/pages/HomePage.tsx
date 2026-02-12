@@ -104,13 +104,35 @@ function CreateGatheringCard() {
 
     setLoading(true);
     try {
-      const { createGathering } = await import('@/services/api');
+      const { createGathering, updateLocation } = await import('@/services/api');
+
+      // 创建聚会
       const gathering = await createGathering({
         name: name.trim(),
         target_time: selectedDate.toISOString(),
         creator_nickname: user?.nickname ?? '用户',
         creator_tastes: selectedTastes,
       });
+
+      // 尝试获取并上传位置（不阻塞流程）
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            try {
+              await updateLocation(gathering.code, {
+                lng: pos.coords.longitude,
+                lat: pos.coords.latitude,
+              });
+              console.log('[Create] 位置已上传');
+            } catch (err) {
+              console.error('[Create] 位置上传失败:', err);
+            }
+          },
+          (err) => console.error('[Create] 获取位置失败:', err),
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }
+
       navigate(`/dashboard/${gathering.code}`);
     } catch {
       setError('创建聚会失败，请重试');

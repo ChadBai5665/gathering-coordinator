@@ -46,6 +46,10 @@ Page({
     // 加载聚会数据
     try {
       await gatheringStore.loadGathering(code);
+
+      // 自动加入聚会并上传位置
+      await this.autoJoinWithLocation(code);
+
       // 开始轮询
       gatheringStore.startPolling(code);
     } catch (error: any) {
@@ -54,6 +58,33 @@ Page({
         icon: 'none',
       });
       this.setData({ loading: false });
+    }
+  },
+
+  async autoJoinWithLocation(code: string) {
+    try {
+      // 获取用户位置
+      const location = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+        wx.getLocation({
+          type: 'gcj02',
+          success: (res) => resolve({ latitude: res.latitude, longitude: res.longitude }),
+          fail: (err) => reject(err),
+        });
+      });
+
+      // 直接更新位置（不管是否已加入）
+      await api.updateLocation(code, {
+        lat: location.latitude,
+        lng: location.longitude,
+      });
+
+      console.log('[Dashboard] 已更新位置信息');
+    } catch (error: any) {
+      console.error('[Dashboard] 更新位置失败:', error);
+      wx.showToast({
+        title: '获取位置失败，请手动授权',
+        icon: 'none',
+      });
     }
   },
 
