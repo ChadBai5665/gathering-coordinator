@@ -13,7 +13,7 @@ export interface Vote {
   gathering_id: string;
   /** 被投票的餐厅在推荐列表中的索引 */
   restaurant_index: number;
-  /** 发起投票的参与者 ID */
+  /** 发起投票的用户 ID（auth.users.id） */
   proposer_id: string;
   /** 投票状态 */
   status: VoteStatus;

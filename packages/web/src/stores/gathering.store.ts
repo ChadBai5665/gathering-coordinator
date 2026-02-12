@@ -53,15 +53,19 @@ export const useGatheringStore = create<GatheringState & GatheringActions>()(
       set({ isLoading: true, error: null });
       try {
         const data = await api.poll(code, 0);
-        set({
-          currentGathering: data.gathering,
-          participants: data.participants,
-          restaurants: data.restaurants,
-          activeVote: data.active_vote,
-          messages: data.messages,
-          version: data.version,
-          isLoading: false,
-        });
+        if (data.changed) {
+          set({
+            currentGathering: data.gathering ?? null,
+            participants: data.participants ?? [],
+            restaurants: data.restaurants ?? [],
+            activeVote: data.active_vote ?? null,
+            messages: data.messages ?? [],
+            version: data.version,
+            isLoading: false,
+          });
+        } else {
+          set({ version: data.version, isLoading: false });
+        }
       } catch (e) {
         set({
           isLoading: false,
@@ -139,15 +143,17 @@ export const useGatheringStore = create<GatheringState & GatheringActions>()(
         try {
           const { version } = get();
           const data = await api.poll(code, version);
-          if (data.version > version) {
+          if (data.changed) {
             set({
-              currentGathering: data.gathering,
-              participants: data.participants,
-              restaurants: data.restaurants,
-              activeVote: data.active_vote,
-              messages: data.messages,
+              currentGathering: data.gathering ?? null,
+              participants: data.participants ?? [],
+              restaurants: data.restaurants ?? [],
+              activeVote: data.active_vote ?? null,
+              messages: data.messages ?? [],
               version: data.version,
             });
+          } else if (data.version !== version) {
+            set({ version: data.version });
           }
         } catch {
           // Silently ignore polling errors

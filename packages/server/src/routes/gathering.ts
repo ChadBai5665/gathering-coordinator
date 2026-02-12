@@ -164,6 +164,40 @@ async function writeMessage(
   });
 }
 
+/**
+ * 判断投票是否超时
+ */
+function isVoteExpired(vote: Vote): boolean {
+  return new Date(vote.timeout_at).getTime() < Date.now();
+}
+
+/**
+ * 结算超时投票（自动否决）
+ * @returns 是否发生结算
+ */
+async function settleVoteTimeout(gathering: Gathering, vote: Vote): Promise<boolean> {
+  if (!isVoteExpired(vote)) return false;
+
+  await supabaseAdmin
+    .from('votes')
+    .update({ status: VoteStatus.REJECTED })
+    .eq('id', vote.id);
+
+  await supabaseAdmin
+    .from('gatherings')
+    .update({ status: GatheringStatus.WAITING })
+    .eq('id', gathering.id);
+
+  await writeMessage(
+    gathering.id,
+    MessageType.VOTE_RESULT,
+    '投票已超时，自动否决',
+  );
+
+  await bumpVersion(gathering.id);
+  return true;
+}
+
 // ── 路由 ──
 
 /**
@@ -290,7 +324,28 @@ router.get('/mine', async (req, res, next) => {
       throw new AppError(500, ErrorCode.UNKNOWN, gErr.message);
     }
 
-    res.json({ success: true, data: gatherings || [] });
+    // 统计参与者数量
+    const { data: participants, error: countErr } = await supabaseAdmin
+      .from('participants')
+      .select('gathering_id')
+      .in('gathering_id', gatheringIds);
+
+    if (countErr) {
+      throw new AppError(500, ErrorCode.UNKNOWN, countErr.message);
+    }
+
+    const countMap = new Map<string, number>();
+    for (const p of participants || []) {
+      const id = p.gathering_id as string;
+      countMap.set(id, (countMap.get(id) || 0) + 1);
+    }
+
+    const enriched = (gatherings || []).map((g) => ({
+      ...g,
+      participant_count: countMap.get(g.id as string) || 0,
+    }));
+
+    res.json({ success: true, data: enriched });
   } catch (err) {
     next(err);
   }
@@ -593,7 +648,22 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
       .eq('status', VoteStatus.ACTIVE);
 
     if (activeVotes && activeVotes.length > 0) {
-      throw new AppError(400, ErrorCode.VOTE_IN_PROGRESS);
+      const activeVoteId = activeVotes[0]?.id as string | undefined;
+      if (activeVoteId) {
+        const { data: activeVote } = await supabaseAdmin
+          .from('votes')
+          .select('*')
+          .eq('id', activeVoteId)
+          .single();
+
+        if (activeVote && (await settleVoteTimeout(gathering, activeVote as Vote))) {
+          // 已结算超时投票，允许继续发起
+        } else {
+          throw new AppError(400, ErrorCode.VOTE_IN_PROGRESS);
+        }
+      } else {
+        throw new AppError(400, ErrorCode.VOTE_IN_PROGRESS);
+      }
     }
 
     // 检查餐厅是否存在
@@ -623,7 +693,7 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
       .insert({
         gathering_id: gathering.id,
         restaurant_index,
-        proposer_id: myParticipant.id,
+        proposer_id: userId,
         status: VoteStatus.ACTIVE,
         timeout_at: timeoutAt,
       })
@@ -730,22 +800,8 @@ router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, ne
       throw new AppError(400, ErrorCode.VOTE_ENDED);
     }
 
-    // 检查是否超时
-    if (new Date(voteData.timeout_at).getTime() < Date.now()) {
-      // 超时自动否决
-      await supabaseAdmin
-        .from('votes')
-        .update({ status: VoteStatus.REJECTED })
-        .eq('id', voteId);
-
-      await supabaseAdmin
-        .from('gatherings')
-        .update({ status: GatheringStatus.WAITING })
-        .eq('id', gathering.id);
-
-      await writeMessage(gathering.id, MessageType.VOTE_RESULT, '投票已超时，自动否决');
-      await bumpVersion(gathering.id);
-
+    // 检查是否超时（轮询触发结算）
+    if (await settleVoteTimeout(gathering, voteData)) {
       throw new AppError(400, ErrorCode.VOTE_ENDED, '投票已超时');
     }
 
@@ -785,7 +841,7 @@ router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, ne
       .eq('gathering_id', gathering.id);
 
     const totalParticipants = allParticipants?.length || 1;
-    const majority = Math.ceil(totalParticipants / 2);
+    const majority = Math.floor(totalParticipants / 2) + 1;
 
     // 判断投票结果
     if (agreeCount >= majority) {
@@ -1030,16 +1086,40 @@ router.post('/:code/arrive', async (req, res, next) => {
 router.get('/:code/poll', async (req, res, next) => {
   try {
     const clientVersion = parseInt(req.query.version as string, 10) || 0;
-    const gathering = await getGatheringByCode(req.params.code);
+    let gathering = await getGatheringByCode(req.params.code);
+
+    // 先检查是否有超时投票需要结算
+    const { data: activeVotes } = await supabaseAdmin
+      .from('votes')
+      .select('*')
+      .eq('gathering_id', gathering.id)
+      .eq('status', VoteStatus.ACTIVE)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    let activeVote = (activeVotes && activeVotes.length > 0)
+      ? (activeVotes[0] as Vote)
+      : null;
+
+    if (activeVote) {
+      const settled = await settleVoteTimeout(gathering, activeVote);
+      if (settled) {
+        gathering = await getGatheringByCode(req.params.code);
+        activeVote = null;
+      }
+    }
 
     // 版本未变化 → 无更新
     if (gathering.version <= clientVersion) {
-      res.json({ success: true, data: { changed: false, version: gathering.version } });
+      res.json({
+        success: true,
+        data: { changed: false, version: gathering.version },
+      });
       return;
     }
 
     // 有更新 → 返回完整状态
-    const [participantsRes, restaurantsRes, voteRes, messagesRes] =
+    const [participantsRes, restaurantsRes, messagesRes] =
       await Promise.all([
         supabaseAdmin
           .from('participants')
@@ -1051,13 +1131,6 @@ router.get('/:code/poll', async (req, res, next) => {
           .eq('gathering_id', gathering.id)
           .order('score', { ascending: false }),
         supabaseAdmin
-          .from('votes')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .eq('status', VoteStatus.ACTIVE)
-          .order('created_at', { ascending: false })
-          .limit(1),
-        supabaseAdmin
           .from('messages')
           .select('*')
           .eq('gathering_id', gathering.id)
@@ -1067,8 +1140,7 @@ router.get('/:code/poll', async (req, res, next) => {
 
     // 活跃投票详情
     let voteDetail = null;
-    if (voteRes.data && voteRes.data.length > 0) {
-      const activeVote = voteRes.data[0] as Vote;
+    if (activeVote) {
       const { data: records } = await supabaseAdmin
         .from('vote_records')
         .select('*')
@@ -1090,6 +1162,7 @@ router.get('/:code/poll', async (req, res, next) => {
       success: true,
       data: {
         changed: true,
+        version: gathering.version,
         gathering,
         participants: participantsRes.data || [],
         restaurants: restaurantsRes.data || [],

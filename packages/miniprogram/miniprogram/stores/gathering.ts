@@ -47,15 +47,23 @@ class GatheringStore {
       this.notify();
 
       const response = await api.poll(code, 0);
-      this.state = {
-        gathering: response.gathering,
-        participants: response.participants,
-        restaurants: response.restaurants,
-        activeVote: response.active_vote,
-        messages: response.messages,
-        version: response.version,
-        loading: false,
-      };
+      if (response.changed) {
+        this.state = {
+          gathering: response.gathering || null,
+          participants: response.participants || [],
+          restaurants: response.restaurants || [],
+          activeVote: response.active_vote || null,
+          messages: response.messages || [],
+          version: response.version,
+          loading: false,
+        };
+      } else {
+        this.state = {
+          ...this.state,
+          version: response.version,
+          loading: false,
+        };
+      }
       this.notify();
     } catch (error) {
       this.state.loading = false;
@@ -70,15 +78,22 @@ class GatheringStore {
     const doPoll = async () => {
       try {
         const response = await api.poll(code, this.state.version);
-        this.state = {
-          gathering: response.gathering,
-          participants: response.participants,
-          restaurants: response.restaurants,
-          activeVote: response.active_vote,
-          messages: response.messages,
-          version: response.version,
-          loading: false,
-        };
+        if (response.changed) {
+          this.state = {
+            gathering: response.gathering || null,
+            participants: response.participants || [],
+            restaurants: response.restaurants || [],
+            activeVote: response.active_vote || null,
+            messages: response.messages || [],
+            version: response.version,
+            loading: false,
+          };
+        } else if (response.version !== this.state.version) {
+          this.state = {
+            ...this.state,
+            version: response.version,
+          };
+        }
         this.notify();
       } catch (error) {
         console.error('Polling error:', error);

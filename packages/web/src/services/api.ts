@@ -162,12 +162,13 @@ export function arrive(code: string): Promise<Participant> {
 // ── Polling ──
 
 export interface PollResponse {
-  gathering: GatheringDetail;
-  participants: Participant[];
-  restaurants: Restaurant[];
-  active_vote: VoteDetail | null;
-  messages: Message[];
+  changed: boolean;
   version: number;
+  gathering?: GatheringDetail;
+  participants?: Participant[];
+  restaurants?: Restaurant[];
+  active_vote?: VoteDetail | null;
+  messages?: Message[];
 }
 
 export function poll(code: string, version: number): Promise<PollResponse> {
