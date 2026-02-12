@@ -25,7 +25,7 @@ App<IAppOption>({
     // 根据环境返回不同的 API 地址
     const envVersion = __wxConfig?.envVersion || 'release';
     const urlMap: Record<string, string> = {
-      develop: 'http://localhost:3000/api',
+      develop: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',  // 开发环境也使用生产 API
       trial: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
       release: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
     };

@@ -108,8 +108,8 @@ export const useGatheringStore = create<GatheringState & GatheringActions>()(
 
     castVote: async (code, voteId, agree) => {
       try {
-        const vote = await api.castVote(code, voteId, agree);
-        set({ activeVote: vote });
+        await api.castVote(code, voteId, agree);
+        await get().fetchGathering(code);
       } catch (e) {
         set({ error: e instanceof Error ? e.message : '投票失败' });
       }

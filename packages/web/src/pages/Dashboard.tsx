@@ -255,9 +255,19 @@ function Sidebar({
       <div className="p-8 pb-0 flex flex-col gap-6">
         {/* Gathering header */}
         <div>
-          <div className="flex items-center gap-2 mb-2 text-primary">
-            <span className="material-icons-round">restaurant_menu</span>
-            <span className="font-bold tracking-wider uppercase text-xs">Gathering Hub</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-primary">
+              <span className="material-icons-round">restaurant_menu</span>
+              <span className="font-bold tracking-wider uppercase text-xs">Gathering Hub</span>
+            </div>
+            <Link
+              to="/"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+              title="返回首页"
+            >
+              <span className="material-icons-round text-sm">home</span>
+              <span>首页</span>
+            </Link>
           </div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white leading-tight">
             {gathering.name}
@@ -876,11 +886,24 @@ function MapSection({
         if (cancelled || !mapRef.current) return;
 
         const AMap = (window as any).AMap;
+
+        // 计算初始中心点：优先级 confirmed > 参与者位置 > 默认北京
+        let initialCenter: [number, number] = [116.397428, 39.90923];
+        if (confirmed?.location) {
+          initialCenter = [confirmed.location.lng, confirmed.location.lat];
+        } else {
+          const firstParticipantWithLocation = participants.find(p => p.location);
+          if (firstParticipantWithLocation?.location) {
+            initialCenter = [
+              firstParticipantWithLocation.location.lng,
+              firstParticipantWithLocation.location.lat
+            ];
+          }
+        }
+
         const map = new AMap.Map(mapRef.current, {
           zoom: 13,
-          center: confirmed?.location
-            ? [confirmed.location.lng, confirmed.location.lat]
-            : [116.397428, 39.90923], // 默认北京
+          center: initialCenter,
           mapStyle: 'amap://styles/light',
         });
 

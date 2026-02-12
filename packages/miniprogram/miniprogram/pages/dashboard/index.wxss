@@ -6,7 +6,7 @@
 
 .content {
   padding: 32rpx;
-  padding-top: calc(88rpx + var(--status-bar-height, 0rpx) + 32rpx);
+  padding-top: 200rpx;
 }
 
 .info-card {

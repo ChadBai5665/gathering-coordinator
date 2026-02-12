@@ -1,9 +1,18 @@
+<wxs module="utils">
+  var isSelected = function(selected, item) {
+    return selected.indexOf(item) > -1;
+  };
+  module.exports = {
+    isSelected: isSelected
+  };
+</wxs>
+
 <view class="taste-selector">
   <view class="taste-list">
     <view
       wx:for="{{tasteOptions}}"
       wx:key="*this"
-      class="taste-item {{isSelected(item) ? 'selected' : ''}}"
+      class="taste-item {{utils.isSelected(selected, item) ? 'selected' : ''}}"
       bindtap="onTasteToggle"
       data-taste="{{item}}"
     >

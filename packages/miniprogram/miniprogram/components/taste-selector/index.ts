@@ -17,10 +17,6 @@ Component({
   },
 
   methods: {
-    isSelected(taste: string): boolean {
-      return (this.data.selected as string[]).includes(taste);
-    },
-
     onTasteToggle(e: WechatMiniprogram.BaseEvent) {
       const taste = e.currentTarget.dataset.taste as string;
       const selected = [...(this.data.selected as string[])];
