@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useGatheringStore } from '@/stores/gathering.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocation as useGeoLocation } from '@/hooks/useLocation';
