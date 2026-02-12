@@ -26,8 +26,8 @@ App<IAppOption>({
     const envVersion = __wxConfig?.envVersion || 'release';
     const urlMap: Record<string, string> = {
       develop: 'http://localhost:3000/api',
-      trial: 'https://api-staging.ontheway.app/api',
-      release: 'https://api.ontheway.app/api',
+      trial: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
+      release: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
     };
     return urlMap[envVersion] || urlMap.release;
   },
