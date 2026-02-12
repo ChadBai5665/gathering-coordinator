@@ -579,61 +579,77 @@ router.post('/:code/recommend', async (req, res, next) => {
       .update({ status: GatheringStatus.RECOMMENDING })
       .eq('id', gathering.id);
 
-    // 调用推荐服务
-    const candidates = await recommend(participants as Participant[]);
+    let rollbackStatus = true;
+    try {
+      // 调用推荐服务
+      const candidates = await recommend(participants as Participant[]);
 
-    // 清除旧推荐
-    await supabaseAdmin
-      .from('restaurants')
-      .delete()
-      .eq('gathering_id', gathering.id);
-
-    // 写入新推荐
-    let insertedRestaurants: Restaurant[] = [];
-    if (candidates.length > 0) {
-      const rows = candidates.map((c) => ({
-        gathering_id: gathering.id,
-        amap_id: c.amap_id,
-        name: c.name,
-        type: c.type,
-        address: c.address,
-        location: c.location,
-        rating: c.rating,
-        cost: c.cost,
-        score: c.score,
-        travel_infos: c.travel_infos,
-        is_confirmed: false,
-      }));
-
-      const { data: inserted, error: iErr } = await supabaseAdmin
+      // 清除旧推荐
+      await supabaseAdmin
         .from('restaurants')
-        .insert(rows)
-        .select();
+        .delete()
+        .eq('gathering_id', gathering.id);
 
-      if (iErr) {
-        throw new AppError(500, ErrorCode.UNKNOWN, `写入推荐餐厅失败: ${iErr.message}`);
+      // 写入新推荐
+      let insertedRestaurants: Restaurant[] = [];
+      if (candidates.length > 0) {
+        const rows = candidates.map((c) => ({
+          gathering_id: gathering.id,
+          amap_id: c.amap_id,
+          name: c.name,
+          type: c.type,
+          address: c.address,
+          location: c.location,
+          rating: c.rating,
+          cost: c.cost,
+          score: c.score,
+          travel_infos: c.travel_infos,
+          is_confirmed: false,
+        }));
+
+        const { data: inserted, error: iErr } = await supabaseAdmin
+          .from('restaurants')
+          .insert(rows)
+          .select();
+
+        if (iErr) {
+          throw new AppError(500, ErrorCode.UNKNOWN, `写入推荐餐厅失败: ${iErr.message}`);
+        }
+
+        insertedRestaurants = (inserted || []) as Restaurant[];
+        insertedRestaurants.sort((a, b) => (b.score || 0) - (a.score || 0));
       }
 
-      insertedRestaurants = (inserted || []) as Restaurant[];
-      insertedRestaurants.sort((a, b) => (b.score || 0) - (a.score || 0));
+      // 恢复状态为 waiting
+      await supabaseAdmin
+        .from('gatherings')
+        .update({ status: GatheringStatus.WAITING })
+        .eq('id', gathering.id);
+
+      await bumpVersion(gathering.id);
+      rollbackStatus = false;
+
+      // 写入系统消息
+      await writeMessage(
+        gathering.id,
+        MessageType.SYSTEM,
+        `已推荐 ${candidates.length} 家餐厅，快来投票选择吧！`,
+      );
+
+      res.json({ success: true, data: insertedRestaurants });
+    } finally {
+      if (rollbackStatus) {
+        try {
+          await supabaseAdmin
+            .from('gatherings')
+            .update({ status: GatheringStatus.WAITING })
+            .eq('id', gathering.id);
+          await bumpVersion(gathering.id);
+        } catch (rollbackErr) {
+          console.error('[Gathering] 推荐失败回滚状态异常:', rollbackErr);
+        }
+      }
     }
-
-    // 恢复状态为 waiting
-    await supabaseAdmin
-      .from('gatherings')
-      .update({ status: GatheringStatus.WAITING })
-      .eq('id', gathering.id);
-
-    await bumpVersion(gathering.id);
-
-    // 写入系统消息
-    await writeMessage(
-      gathering.id,
-      MessageType.SYSTEM,
-      `已推荐 ${candidates.length} 家餐厅，快来投票选择吧！`,
-    );
-
-    res.json({ success: true, data: insertedRestaurants });
   } catch (err) {
     next(err);
   }
@@ -716,6 +732,9 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
       .single();
 
     if (vErr || !vote) {
+      if (vErr?.code === '23503') {
+        throw new AppError(401, ErrorCode.UNAUTHORIZED, '登录已过期，请重新登录');
+      }
       throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${vErr?.message}`);
     }
 

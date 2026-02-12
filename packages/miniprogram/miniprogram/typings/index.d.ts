@@ -1,5 +1,3 @@
-/// <reference path="./types/wx/index.d.ts" />
-
 /** 微信小程序内部配置（非公开 API） */
 declare const __wxConfig: {
   envVersion?: 'develop' | 'trial' | 'release';

@@ -171,27 +171,32 @@ export async function recommend(
   const tastes = mergeTastes(participants);
   const keywords = tastes.join('|');
 
-  // 搜索 POI
-  const pois = await searchPOI(
-    `${center.lng},${center.lat}`,
-    keywords,
-    3000,
-  );
-
-  if (pois.length === 0) {
-    // 扩大搜索范围重试
-    const widePois = await searchPOI(
+  try {
+    // 搜索 POI
+    const pois = await searchPOI(
       `${center.lng},${center.lat}`,
-      '美食|餐厅',
-      5000,
+      keywords,
+      3000,
     );
-    if (widePois.length === 0) {
-      return generateMockRestaurants(center, participants);
-    }
-    return await scoreAndRank(widePois, withLocation, tastes);
-  }
 
-  return await scoreAndRank(pois, withLocation, tastes);
+    if (pois.length === 0) {
+      // 扩大搜索范围重试
+      const widePois = await searchPOI(
+        `${center.lng},${center.lat}`,
+        '美食|餐厅',
+        5000,
+      );
+      if (widePois.length === 0) {
+        return generateMockRestaurants(center, participants);
+      }
+      return await scoreAndRank(widePois, withLocation, tastes);
+    }
+
+    return await scoreAndRank(pois, withLocation, tastes);
+  } catch (err) {
+    console.warn(`[RestaurantService] 高德服务异常，降级为模拟数据: ${(err as Error).message}`);
+    return generateMockRestaurants(center, participants);
+  }
 }
 
 /**

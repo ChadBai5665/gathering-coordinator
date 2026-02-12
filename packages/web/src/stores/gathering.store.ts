@@ -92,7 +92,9 @@ export const useGatheringStore = create<GatheringState & GatheringActions>()(
       set({ isLoading: true, error: null });
       try {
         const restaurants = await api.recommend(code);
-        set({ restaurants, isLoading: false });
+        set({ restaurants });
+        await get().fetchGathering(code);
+        set({ isLoading: false });
       } catch (e) {
         set({
           isLoading: false,

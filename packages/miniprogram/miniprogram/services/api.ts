@@ -41,7 +41,7 @@ function getBaseUrl(): string {
 
 /** 请求选项（不含 url，由 request 内部拼接） */
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   data?: string | WechatMiniprogram.IAnyObject | ArrayBuffer;
   header?: Record<string, string>;
 }
