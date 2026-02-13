@@ -37,6 +37,10 @@ class GatheringStore {
   private listeners: GatheringListener[] = [];
   private pollTimer: number | null = null;
 
+  private normalizeVersion(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
   getState(): GatheringState {
     return { ...this.state };
   }
@@ -54,13 +58,13 @@ class GatheringStore {
           restaurants: response.restaurants || [],
           activeVote: response.active_vote || null,
           messages: response.messages || [],
-          version: response.version,
+          version: this.normalizeVersion(response.version, this.state.version),
           loading: false,
         };
       } else {
         this.state = {
           ...this.state,
-          version: response.version,
+          version: this.normalizeVersion(response.version, this.state.version),
           loading: false,
         };
       }
@@ -85,13 +89,13 @@ class GatheringStore {
             restaurants: response.restaurants || [],
             activeVote: response.active_vote || null,
             messages: response.messages || [],
-            version: response.version,
+            version: this.normalizeVersion(response.version, this.state.version),
             loading: false,
           };
         } else if (response.version !== this.state.version) {
           this.state = {
             ...this.state,
-            version: response.version,
+            version: this.normalizeVersion(response.version, this.state.version),
           };
         }
         this.notify();

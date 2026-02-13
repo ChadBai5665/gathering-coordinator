@@ -9,18 +9,27 @@ export function loadAMap(): Promise<void> {
   if (loadPromise) return loadPromise;
 
   loadPromise = new Promise((resolve, reject) => {
+    const amapKey = import.meta.env.VITE_AMAP_JS_KEY;
+    if (!amapKey) {
+      reject(new Error('AMAP JS Key 未配置'));
+      return;
+    }
+
     // 设置安全密钥
-    (window as any)._AMapSecurityConfig = {
-      securityJsCode: import.meta.env.VITE_AMAP_JS_SECRET || '',
-    };
+    const jsSecret = import.meta.env.VITE_AMAP_JS_SECRET;
+    if (jsSecret) {
+      (window as any)._AMapSecurityConfig = {
+        securityJsCode: jsSecret,
+      };
+    }
 
     const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${import.meta.env.VITE_AMAP_JS_KEY}`;
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${amapKey}`;
     script.onload = () => {
       mapLoaded = true;
       resolve();
     };
-    script.onerror = () => reject(new Error('高德地图加载失败'));
+    script.onerror = () => reject(new Error('高德地图加载失败，请检查 Key 或网络'));
     document.head.appendChild(script);
   });
 

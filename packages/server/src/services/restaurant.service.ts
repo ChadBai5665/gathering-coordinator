@@ -60,6 +60,10 @@ function mergeTastes(participants: Participant[]): string[] {
   return Array.from(tasteSet);
 }
 
+function isValidLocation(location: Location | null | undefined): location is Location {
+  return !!location && Number.isFinite(location.lng) && Number.isFinite(location.lat);
+}
+
 /**
  * 计算口味匹配分（0-1）
  * POI 类型名称中包含的口味关键词越多，分数越高
@@ -119,7 +123,7 @@ function generateMockRestaurants(
 
     // 为每个参与者生成模拟行程信息
     const travelInfos: TravelInfo[] = participants
-      .filter((p) => p.location)
+      .filter((p) => isValidLocation(p.location))
       .map((p) => {
         const dist = calculateDistance(p.location!, loc);
         return {
@@ -152,14 +156,17 @@ export async function recommend(
   participants: Participant[],
 ): Promise<RestaurantCandidate[]> {
   // 筛选有位置的参与者
-  const withLocation = participants.filter((p) => p.location !== null);
+  const withLocation = participants.filter((p) => isValidLocation(p.location));
   if (withLocation.length === 0) {
     return [];
   }
 
   // 计算中心点
   const locations = withLocation.map((p) => p.location!);
-  const center = calculateCenter(locations);
+  let center = calculateCenter(locations);
+  if (!Number.isFinite(center.lng) || !Number.isFinite(center.lat)) {
+    center = calculateCenter([]);
+  }
 
   // 无 AMAP_KEY 时返回 Mock 数据
   if (!config.amapKey) {

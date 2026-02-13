@@ -886,6 +886,9 @@ function MapSection({
         if (cancelled || !mapRef.current) return;
 
         const AMap = (window as any).AMap;
+        if (!AMap) {
+          throw new Error('AMap 未加载，请检查 Key/域名白名单');
+        }
 
         // 计算初始中心点：优先级 confirmed > 参与者位置 > 默认北京
         let initialCenter: [number, number] = [116.397428, 39.90923];
@@ -909,8 +912,11 @@ function MapSection({
 
         mapInstanceRef.current = map;
         setMapReady(true);
-      } catch {
-        if (!cancelled) setMapError('地图加载失败');
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : '地图加载失败';
+          setMapError(message);
+        }
       }
     }
 

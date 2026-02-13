@@ -637,6 +637,12 @@ router.post('/:code/recommend', async (req, res, next) => {
       );
 
       res.json({ success: true, data: insertedRestaurants });
+    } catch (err) {
+      if (err instanceof AppError) {
+        throw err;
+      }
+      const message = err instanceof Error ? err.message : '推荐失败';
+      throw new AppError(500, ErrorCode.UNKNOWN, message);
     } finally {
       if (rollbackStatus) {
         try {

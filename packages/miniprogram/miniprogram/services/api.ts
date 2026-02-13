@@ -213,5 +213,6 @@ export interface PollResponse {
 }
 
 export function poll(code: string, version: number): Promise<PollResponse> {
-  return request<PollResponse>(`/gatherings/${code}/poll?version=${version}`);
+  const safeVersion = Number.isFinite(version) ? version : 0;
+  return request<PollResponse>(`/gatherings/${code}/poll?version=${safeVersion}`);
 }
