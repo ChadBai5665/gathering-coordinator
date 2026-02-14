@@ -39,3 +39,9 @@ packages/miniprogram/node_modules/
 
 # Vercel
 .vercel/
+
+# Archive: large generated images
+Gemini_Generated_Image_*
+# Backup files
+*.bak-*
+*.fullrewrite-*
