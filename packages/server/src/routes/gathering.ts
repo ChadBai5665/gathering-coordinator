@@ -768,21 +768,33 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
     // 创建投票（5 分钟超时）
     const timeoutAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const { data: vote, error: vErr } = await supabaseAdmin
-      .from('votes')
-      .insert({
-        gathering_id: gathering.id,
-        restaurant_index,
-        proposer_id: userId,
-        status: VoteStatus.ACTIVE,
-        timeout_at: timeoutAt,
-      })
-      .select()
-      .single();
+    // votes.proposer_id 的外键在不同环境可能指向 auth.users(id) 或 participants(id)。
+    // 先按 auth.users 写入；若触发 votes_proposer_id_fkey 再降级为 participants.id。
+    let vote: Vote | null = null;
+    let vErr: any = null;
+
+    const tryInsertVote = async (proposerId: string) =>
+      supabaseAdmin
+        .from('votes')
+        .insert({
+          gathering_id: gathering.id,
+          restaurant_index,
+          proposer_id: proposerId,
+          status: VoteStatus.ACTIVE,
+          timeout_at: timeoutAt,
+        })
+        .select()
+        .single();
+
+    ({ data: vote, error: vErr } = await tryInsertVote(userId));
+
+    if ((vErr || !vote) && vErr?.code === '23503' && `${vErr?.message || ''}`.includes('votes_proposer_id_fkey')) {
+      ({ data: vote, error: vErr } = await tryInsertVote(myParticipant.id));
+    }
 
     if (vErr || !vote) {
       if (vErr?.code === '23503') {
-        throw new AppError(401, ErrorCode.UNAUTHORIZED, '登录已过期，请重新登录');
+        throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${vErr?.message}`);
       }
       throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${vErr?.message}`);
     }

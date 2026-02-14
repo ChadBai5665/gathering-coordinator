@@ -15,15 +15,17 @@ export default function JoinPage() {
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(true);
 
+  const normalizedCode = (code || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
   useEffect(() => {
-    if (!code) {
+    if (!normalizedCode) {
       navigate('/', { replace: true });
       return;
     }
 
     if (!isAuthenticated) {
       // 保存目标 code 到 sessionStorage，登录后自动跳回
-      sessionStorage.setItem('pendingJoinCode', code);
+      sessionStorage.setItem('pendingJoinCode', normalizedCode);
       navigate('/login', { replace: true });
       return;
     }
@@ -32,15 +34,15 @@ export default function JoinPage() {
     const doJoin = async () => {
       try {
         const { joinGathering } = await import('@/services/api');
-        await joinGathering(code, {
+        await joinGathering(normalizedCode, {
           nickname: user?.nickname ?? '用户',
           tastes: user?.preferences?.default_tastes ?? [],
         });
-        navigate(`/dashboard/${code}`, { replace: true });
+        navigate(`/dashboard/${normalizedCode}`, { replace: true });
       } catch (err: any) {
         // 如果已经是参与者，直接跳转
         if (err?.code === 'ERR_ALREADY_JOINED' || err?.message?.includes('已加入')) {
-          navigate(`/dashboard/${code}`, { replace: true });
+          navigate(`/dashboard/${normalizedCode}`, { replace: true });
           return;
         }
         setError(err?.message || '加入聚会失败');
@@ -49,7 +51,7 @@ export default function JoinPage() {
     };
 
     doJoin();
-  }, [code, isAuthenticated, navigate, user]);
+  }, [normalizedCode, isAuthenticated, navigate, user]);
 
   if (joining) {
     return (
@@ -57,7 +59,7 @@ export default function JoinPage() {
         <div className="text-center">
           <span className="material-icons-round text-5xl text-primary-500 animate-spin mb-4 block">progress_activity</span>
           <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">正在加入聚会...</p>
-          <p className="text-sm text-slate-500 mt-1">邀请码: {code}</p>
+          <p className="text-sm text-slate-500 mt-1">邀请码: {normalizedCode}</p>
         </div>
       </div>
     );

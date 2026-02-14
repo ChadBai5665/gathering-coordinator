@@ -30,6 +30,10 @@ import type {
 export function DashboardPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const normalizedCode = useMemo(
+    () => (code || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase(),
+    [code],
+  );
   const {
     currentGathering,
     participants,
@@ -47,22 +51,29 @@ export function DashboardPage() {
 
   // 上传位置到后端
   useEffect(() => {
-    if (userLocation && code) {
-      api.updateLocation(code, userLocation).catch((err) => {
+    if (userLocation && normalizedCode) {
+      api.updateLocation(normalizedCode, userLocation).catch((err) => {
         console.error('更新位置失败:', err);
       });
     }
-  }, [userLocation, code]);
+  }, [userLocation, normalizedCode]);
 
   useEffect(() => {
-    if (!code) {
+    if (!normalizedCode) {
       navigate('/');
       return;
     }
-    fetchGathering(code);
-    startPolling(code);
+
+    // Canonicalize URL in case it contains separators like `XAU-C58`.
+    if (code !== normalizedCode) {
+      navigate(`/dashboard/${normalizedCode}`, { replace: true });
+      return;
+    }
+
+    fetchGathering(normalizedCode);
+    startPolling(normalizedCode);
     return () => stopPolling();
-  }, [code, fetchGathering, startPolling, stopPolling, navigate]);
+  }, [code, normalizedCode, fetchGathering, startPolling, stopPolling, navigate]);
 
   if (isLoading && !currentGathering) {
     return <DashboardSkeleton />;
