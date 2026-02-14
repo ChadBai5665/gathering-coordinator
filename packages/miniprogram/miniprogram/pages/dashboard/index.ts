@@ -1,4 +1,4 @@
-import * as api from '../../services/api';
+﻿import * as api from '../../services/api';
 import { gatheringStore, type GatheringState } from '../../stores/gathering';
 import { authStore } from '../../stores/auth';
 import type { Restaurant } from '../../services/types';
@@ -17,27 +17,21 @@ Page({
 
   async onLoad(options: { code?: string }) {
     if (!authStore.isLoggedIn) {
-      wx.redirectTo({
-        url: '/pages/login/index',
-      });
+      wx.redirectTo({ url: '/pages/login/index' });
       return;
     }
 
     const code = options.code;
     if (!code) {
-      wx.showToast({
-        title: '缺少聚会�?,
-        icon: 'none',
-      });
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 1500);
+      wx.showToast({ title: '缺少聚会码', icon: 'none' });
+      setTimeout(() => { wx.navigateBack(); }, 1500);
       return;
     }
 
     this.setData({ code });
 
-    // 订阅状态变�?    this.unsubscribe = gatheringStore.subscribe((state) => {
+    // 订阅状态变化
+    this.unsubscribe = gatheringStore.subscribe((state) => {
       this.setData({ state, loading: false });
       this.updateMapMarkers(state);
     });
@@ -45,22 +39,18 @@ Page({
     // 加载聚会数据
     try {
       await gatheringStore.loadGathering(code);
-
-      // 自动加入聚会并上传位�?      await this.autoJoinWithLocation(code);
-
-      // 开始轮�?      gatheringStore.startPolling(code);
+      // 自动加入聚会并上传位置
+      await this.autoJoinWithLocation(code);
+      // 开始轮询
+      gatheringStore.startPolling(code);
     } catch (error: any) {
-      wx.showToast({
-        title: error.message || '加载失败',
-        icon: 'none',
-      });
+      wx.showToast({ title: error.message || '加载失败', icon: 'none' });
       this.setData({ loading: false });
     }
   },
 
   async autoJoinWithLocation(code: string) {
     try {
-      // 获取用户位置
       const location = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
         wx.getLocation({
           type: 'gcj02',
@@ -69,18 +59,15 @@ Page({
         });
       });
 
-      // 直接更新位置（不管是否已加入�?      await api.updateLocation(code, {
+      await api.updateLocation(code, {
         lat: location.latitude,
         lng: location.longitude,
       });
 
-      console.log('[Dashboard] 已更新位置信�?);
+      console.log('[Dashboard] 已更新位置信息');
     } catch (error: any) {
       console.error('[Dashboard] 更新位置失败:', error);
-      wx.showToast({
-        title: '获取位置失败，请手动授权',
-        icon: 'none',
-      });
+      wx.showToast({ title: '获取位置失败，请手动授权', icon: 'none' });
     }
   },
 
@@ -88,9 +75,7 @@ Page({
     // 停止轮询
     gatheringStore.stopPolling();
     // 取消订阅
-    if (this.unsubscribe) {
-      this.unsubscribe();
-    }
+    if (this.unsubscribe) this.unsubscribe();
   },
 
   updateMapMarkers(state: GatheringState) {
@@ -99,7 +84,8 @@ Page({
     let totalLng = 0;
     let count = 0;
 
-    // 添加参与者标�?    state.participants.forEach((p, index) => {
+    // 添加参与者标记
+    state.participants.forEach((p, index) => {
       if (p.location) {
         markers.push({
           id: index,
@@ -143,7 +129,8 @@ Page({
       });
     });
 
-    // 计算地图中心�?    if (count > 0) {
+    // 计算地图中心点
+    if (count > 0) {
       this.setData({
         mapMarkers: markers,
         mapCenterLat: totalLat / count,
@@ -157,9 +144,8 @@ Page({
   onShareAppMessage() {
     const { state } = this.data;
     if (!state?.gathering) return {};
-
     return {
-      title: `邀请你加入�?{state.gathering.name}」`,
+      title: `邀请你加入「${state.gathering.name}」`,
       path: `/pages/dashboard/index?code=${state.gathering.code}`,
     };
   },
@@ -167,59 +153,56 @@ Page({
   onCopyCode() {
     const { state } = this.data;
     if (!state?.gathering) return;
-
     wx.setClipboardData({
       data: state.gathering.code,
-      success: () => {
-        wx.showToast({
-          title: '邀请码已复�?,
-          icon: 'success',
-        });
-      },
+      success: () => { wx.showToast({ title: '邀请码已复制', icon: 'success' }); },
     });
   },
 
   async onRecommend() {
     const { code } = this.data;
-    wx.showLoading({ title: '获取推荐�?..' });
-
+    wx.showLoading({ title: '获取推荐中...' });
     try {
-      await api.recommend(code);
+      const recommended = await api.recommend(code);
       await gatheringStore.loadGathering(code);
       wx.hideLoading();
-      wx.showToast({
-        title: '推荐成功',
-        icon: 'success',
-      });
+
+      const latest = gatheringStore.getState();
+      const latestCount = latest.restaurants?.length || 0;
+      const recommendedCount = recommended?.length || 0;
+
+      wx.showToast({ title: '推荐成功', icon: 'success' });
+
+      // If the server returns recommendations but polling/db state is still empty,
+      // surface a clear hint so users don't think the button is broken.
+      if (latestCount === 0 && recommendedCount > 0) {
+        wx.showModal({
+          title: '推荐未同步',
+          content: '已拿到推荐，但列表还没同步出来。通常是服务端刚部署或权限配置未生效，稍等几秒重试，或重启小程序后再试。',
+          showCancel: false,
+        });
+      } else if (latestCount === 0 && recommendedCount === 0) {
+        wx.showToast({ title: '暂无餐厅推荐，请稍后重试', icon: 'none' });
+      }
     } catch (error: any) {
       wx.hideLoading();
-      wx.showToast({
-        title: error.message || '推荐失败',
-        icon: 'none',
-      });
+      wx.showToast({ title: error.message || '推荐失败', icon: 'none' });
     }
   },
 
   async onVoteRestaurant(e: any) {
     const { restaurant, rank } = e.detail;
     const { code } = this.data;
-
     wx.showModal({
       title: '发起投票',
-      content: `确定要投票选择�?{restaurant.name}」吗？`,
+      content: `确定要投票选择「${restaurant.name}」吗？`,
       success: async (res) => {
         if (res.confirm) {
           try {
             await api.startVote(code, rank - 1);
-            wx.showToast({
-              title: '投票已发�?,
-              icon: 'success',
-            });
+            wx.showToast({ title: '投票已发起', icon: 'success' });
           } catch (error: any) {
-            wx.showToast({
-              title: error.message || '投票失败',
-              icon: 'none',
-            });
+            wx.showToast({ title: error.message || '投票失败', icon: 'none' });
           }
         }
       },
@@ -229,52 +212,31 @@ Page({
   async onCastVote(agree: boolean) {
     const { code, state } = this.data;
     if (!state?.activeVote) return;
-
     try {
       await api.castVote(code, state.activeVote.id, agree);
-      wx.showToast({
-        title: agree ? '已投同意' : '已投反对',
-        icon: 'success',
-      });
+      wx.showToast({ title: agree ? '已投同意' : '已投反对', icon: 'success' });
     } catch (error: any) {
-      wx.showToast({
-        title: error.message || '投票失败',
-        icon: 'none',
-      });
+      wx.showToast({ title: error.message || '投票失败', icon: 'none' });
     }
   },
 
   async onDepart() {
     const { code } = this.data;
-
     try {
       await api.depart(code);
-      wx.showToast({
-        title: '已标记出�?,
-        icon: 'success',
-      });
+      wx.showToast({ title: '已标记出发', icon: 'success' });
     } catch (error: any) {
-      wx.showToast({
-        title: error.message || '操作失败',
-        icon: 'none',
-      });
+      wx.showToast({ title: error.message || '操作失败', icon: 'none' });
     }
   },
 
   async onArrive() {
     const { code } = this.data;
-
     try {
       await api.arrive(code);
-      wx.showToast({
-        title: '已标记到�?,
-        icon: 'success',
-      });
+      wx.showToast({ title: '已标记到达', icon: 'success' });
     } catch (error: any) {
-      wx.showToast({
-        title: error.message || '操作失败',
-        icon: 'none',
-      });
+      wx.showToast({ title: error.message || '操作失败', icon: 'none' });
     }
   },
 
@@ -285,6 +247,6 @@ Page({
     const day = date.getDate();
     const hour = date.getHours().toString().padStart(2, '0');
     const minute = date.getMinutes().toString().padStart(2, '0');
-    return `${month}�?{day}�?${hour}:${minute}`;
+    return `${month}月${day}日 ${hour}:${minute}`;
   },
 });

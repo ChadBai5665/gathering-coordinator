@@ -358,27 +358,28 @@ router.get('/mine', async (req, res, next) => {
 router.get('/:code', async (req, res, next) => {
   try {
     const gathering = await getGatheringByCode(req.params.code);
+    const supabase = req.supabase!;
 
     // 并行查询关联数据
     const [participantsRes, restaurantsRes, voteRes, messagesRes] =
       await Promise.all([
-        supabaseAdmin
+        supabase
           .from('participants')
           .select('*')
           .eq('gathering_id', gathering.id),
-        supabaseAdmin
+        supabase
           .from('restaurants')
           .select('*')
           .eq('gathering_id', gathering.id)
           .order('score', { ascending: false }),
-        supabaseAdmin
+        supabase
           .from('votes')
           .select('*')
           .eq('gathering_id', gathering.id)
           .eq('status', VoteStatus.ACTIVE)
           .order('created_at', { ascending: false })
           .limit(1),
-        supabaseAdmin
+        supabase
           .from('messages')
           .select('*')
           .eq('gathering_id', gathering.id)
@@ -386,14 +387,31 @@ router.get('/:code', async (req, res, next) => {
           .limit(50),
       ]);
 
+    if (participantsRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `查询参与者失败: ${participantsRes.error.message}`);
+    }
+    if (restaurantsRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${restaurantsRes.error.message}`);
+    }
+    if (voteRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `查询投票失败: ${voteRes.error.message}`);
+    }
+    if (messagesRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `查询消息失败: ${messagesRes.error.message}`);
+    }
+
     // 如果有活跃投票，查询投票记录
     let voteDetail = null;
     if (voteRes.data && voteRes.data.length > 0) {
       const activeVote = voteRes.data[0] as Vote;
-      const { data: records } = await supabaseAdmin
+      const { data: records, error: vrErr } = await supabase
         .from('vote_records')
         .select('*')
         .eq('vote_id', activeVote.id);
+
+      if (vrErr) {
+        throw new AppError(500, ErrorCode.UNKNOWN, `查询投票记录失败: ${vrErr.message}`);
+      }
 
       const voteRecords = (records || []) as VoteRecord[];
       voteDetail = {
@@ -688,6 +706,7 @@ router.post('/:code/recommend', async (req, res, next) => {
 router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => {
   try {
     const userId = req.user!.id;
+    const supabase = req.supabase!;
     const gathering = await getGatheringByCode(req.params.code);
     const { restaurant_index } = req.body as z.infer<typeof startVoteSchema>;
 
@@ -724,11 +743,15 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
     }
 
     // 检查餐厅是否存在
-    const { data: restaurants } = await supabaseAdmin
+    const { data: restaurants, error: rErr } = await supabase
       .from('restaurants')
       .select('*')
       .eq('gathering_id', gathering.id)
       .order('score', { ascending: false });
+
+    if (rErr) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${rErr.message}`);
+    }
 
     if (!restaurants || restaurant_index >= restaurants.length) {
       throw new AppError(400, ErrorCode.RESTAURANT_NOT_FOUND, '餐厅索引无效');
@@ -831,6 +854,7 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
 router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, next) => {
   try {
     const userId = req.user!.id;
+    const supabase = req.supabase!;
     const gathering = await getGatheringByCode(req.params.code);
     const voteId = Array.isArray(req.params.voteId) ? req.params.voteId[0] : req.params.voteId;
     const { agree } = req.body as z.infer<typeof castVoteSchema>;
@@ -912,11 +936,15 @@ router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, ne
         .eq('id', voteId);
 
       // 查询餐厅列表并确认
-      const { data: restaurants } = await supabaseAdmin
+      const { data: restaurants, error: rErr } = await supabase
         .from('restaurants')
         .select('*')
         .eq('gathering_id', gathering.id)
         .order('score', { ascending: false });
+
+      if (rErr) {
+        throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${rErr.message}`);
+      }
 
       if (restaurants && voteData.restaurant_index < restaurants.length) {
         const confirmed = restaurants[voteData.restaurant_index] as Restaurant;
@@ -1147,6 +1175,7 @@ router.get('/:code/poll', async (req, res, next) => {
   try {
     const clientVersion = parseInt(req.query.version as string, 10) || 0;
     let gathering = await getGatheringByCode(req.params.code);
+    const supabase = req.supabase!;
 
     // 先检查是否有超时投票需要结算
     const { data: activeVotes } = await supabaseAdmin
@@ -1181,16 +1210,16 @@ router.get('/:code/poll', async (req, res, next) => {
     // 有更新 → 返回完整状态
     const [participantsRes, restaurantsRes, messagesRes] =
       await Promise.all([
-        supabaseAdmin
+        supabase
           .from('participants')
           .select('*')
           .eq('gathering_id', gathering.id),
-        supabaseAdmin
+        supabase
           .from('restaurants')
           .select('*')
           .eq('gathering_id', gathering.id)
           .order('score', { ascending: false }),
-        supabaseAdmin
+        supabase
           .from('messages')
           .select('*')
           .eq('gathering_id', gathering.id)
@@ -1198,13 +1227,27 @@ router.get('/:code/poll', async (req, res, next) => {
           .limit(50),
       ]);
 
+    if (participantsRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询参与者失败: ${participantsRes.error.message}`);
+    }
+    if (restaurantsRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询餐厅失败: ${restaurantsRes.error.message}`);
+    }
+    if (messagesRes.error) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询消息失败: ${messagesRes.error.message}`);
+    }
+
     // 活跃投票详情
     let voteDetail = null;
     if (activeVote) {
-      const { data: records } = await supabaseAdmin
+      const { data: records, error: vrErr } = await supabase
         .from('vote_records')
         .select('*')
         .eq('vote_id', activeVote.id);
+
+      if (vrErr) {
+        throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询投票记录失败: ${vrErr.message}`);
+      }
 
       const voteRecords = (records || []) as VoteRecord[];
       voteDetail = {

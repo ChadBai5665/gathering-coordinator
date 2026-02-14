@@ -1,4 +1,4 @@
-import { authStore } from '../../stores/auth';
+﻿import { authStore } from '../../stores/auth';
 
 Page({
   data: {
@@ -49,8 +49,8 @@ Page({
 
   onAbout() {
     wx.showModal({
-      title: '关于碰个头',
-      content: '碰个头 v1.0.0\n\n和朋友碰个头，一起吃点好的',
+      title: '关于聚个饭',
+      content: '聚个饭 v1.0.0\n\n和朋友一起，吃点好的。',
       showCancel: false,
       confirmText: '知道了',
     });

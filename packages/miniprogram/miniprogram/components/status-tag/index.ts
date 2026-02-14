@@ -1,4 +1,4 @@
-Component({
+﻿Component({
   properties: {
     status: {
       type: String,

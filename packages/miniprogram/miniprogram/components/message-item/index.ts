@@ -1,4 +1,4 @@
-import type { Message } from '../../services/types';
+﻿import type { Message } from '../../services/types';
 import { MessageType } from '../../services/constants';
 
 Component({
@@ -10,7 +10,7 @@ Component({
   },
 
   data: {
-    iconText: 'ℹ️',
+    iconText: '鈩癸笍',
     messageClass: 'system',
   },
 
@@ -19,20 +19,20 @@ Component({
       if (!message) return;
 
       const iconMap: Record<string, string> = {
-        [MessageType.SYSTEM]: 'ℹ️',
-        [MessageType.JOIN]: '👋',
-        [MessageType.DEPART]: '🚗',
+        [MessageType.SYSTEM]: '鈩癸笍',
+        [MessageType.JOIN]: '馃憢',
+        [MessageType.DEPART]: '馃殫',
         [MessageType.ARRIVE]: '✅',
         [MessageType.VOTE]: '🗳️',
-        [MessageType.VOTE_RESULT]: '📊',
-        [MessageType.RESTAURANT_CONFIRMED]: '🎉',
-        [MessageType.REMINDER]: '⏰',
-        [MessageType.URGENT]: '🚨',
-        [MessageType.MILESTONE]: '🏆',
+        [MessageType.VOTE_RESULT]: '馃搳',
+        [MessageType.RESTAURANT_CONFIRMED]: '馃帀',
+        [MessageType.REMINDER]: '🔔',
+        [MessageType.URGENT]: '馃毃',
+        [MessageType.MILESTONE]: '馃弳',
       };
 
       this.setData({
-        iconText: iconMap[message.type] || 'ℹ️',
+        iconText: iconMap[message.type] || '鈩癸笍',
         messageClass: message.type,
       });
     },
@@ -48,3 +48,4 @@ Component({
     },
   },
 });
+

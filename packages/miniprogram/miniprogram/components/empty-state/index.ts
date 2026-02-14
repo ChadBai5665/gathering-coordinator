@@ -1,4 +1,4 @@
-Component({
+﻿Component({
   properties: {
     icon: {
       type: String,
@@ -6,7 +6,7 @@ Component({
     },
     title: {
       type: String,
-      value: '暂无数据',
+      value: '鏆傛棤鏁版嵁',
     },
     description: {
       type: String,
@@ -15,22 +15,23 @@ Component({
   },
 
   data: {
-    iconText: '📦',
+    iconText: '馃摝',
   },
 
   observers: {
     icon: function (icon: string) {
       const iconMap: Record<string, string> = {
-        inbox: '📦',
-        search: '🔍',
-        calendar: '📅',
-        user: '👤',
-        restaurant: '🍽️',
-        location: '📍',
+        inbox: '馃摝',
+        search: '馃攳',
+        calendar: '馃搮',
+        user: '馃懁',
+        restaurant: '🍣',
+        location: '馃搷',
       };
       this.setData({
-        iconText: iconMap[icon] || '📦',
+        iconText: iconMap[icon] || '馃摝',
       });
     },
   },
 });
+
