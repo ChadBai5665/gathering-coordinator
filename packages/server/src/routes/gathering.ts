@@ -769,12 +769,14 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
     const timeoutAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // votes.proposer_id 的外键在不同环境可能指向 auth.users(id) 或 participants(id)。
-    // 先按 auth.users 写入；若触发 votes_proposer_id_fkey 再降级为 participants.id。
-    let vote: Vote | null = null;
-    let vErr: any = null;
+    // 不依赖错误码/文案，直接依次尝试两种 proposer_id。
+    const proposerCandidates = Array.from(new Set([userId, myParticipant.id]));
 
-    const tryInsertVote = async (proposerId: string) =>
-      supabaseAdmin
+    let vote: Vote | null = null;
+    let lastErr: any = null;
+
+    for (const proposerId of proposerCandidates) {
+      const { data, error } = await supabaseAdmin
         .from('votes')
         .insert({
           gathering_id: gathering.id,
@@ -786,17 +788,17 @@ router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => 
         .select()
         .single();
 
-    ({ data: vote, error: vErr } = await tryInsertVote(userId));
+      if (!error && data) {
+        vote = data as Vote;
+        lastErr = null;
+        break;
+      }
 
-    if ((vErr || !vote) && vErr?.code === '23503' && `${vErr?.message || ''}`.includes('votes_proposer_id_fkey')) {
-      ({ data: vote, error: vErr } = await tryInsertVote(myParticipant.id));
+      lastErr = error;
     }
 
-    if (vErr || !vote) {
-      if (vErr?.code === '23503') {
-        throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${vErr?.message}`);
-      }
-      throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${vErr?.message}`);
+    if (!vote) {
+      throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${lastErr?.message || 'unknown error'}`);
     }
 
     // 更新聚会状态为投票中
