@@ -5,95 +5,74 @@
 
 /** 错误码枚举 */
 export const ErrorCode = {
-  // ── 通用错误 ──
-  /** 未知错误 */
-  UNKNOWN: 'ERR_UNKNOWN',
-  /** 参数校验失败 */
-  VALIDATION_FAILED: 'ERR_VALIDATION_FAILED',
-  /** 未授权 */
-  UNAUTHORIZED: 'ERR_UNAUTHORIZED',
+  // ── v2 通用错误（PRD-v2 附录 B） ──
+  /** 未登录 */
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
   /** 无权限 */
-  FORBIDDEN: 'ERR_FORBIDDEN',
+  FORBIDDEN: 'FORBIDDEN',
   /** 资源不存在 */
-  NOT_FOUND: 'ERR_NOT_FOUND',
-  /** 请求频率超限 */
-  RATE_LIMITED: 'ERR_RATE_LIMITED',
+  NOT_FOUND: 'NOT_FOUND',
+  /** 参数校验失败 */
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  /** 服务器内部错误 */
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
 
   // ── 聚会相关 ──
-  /** 聚会不存在 */
-  GATHERING_NOT_FOUND: 'ERR_GATHERING_NOT_FOUND',
-  /** 聚会已结束 */
-  GATHERING_ENDED: 'ERR_GATHERING_ENDED',
-  /** 聚会已取消 */
-  GATHERING_CANCELLED: 'ERR_GATHERING_CANCELLED',
-  /** 邀请码无效 */
-  INVALID_INVITE_CODE: 'ERR_INVALID_INVITE_CODE',
-  /** 聚会名称无效 */
-  INVALID_GATHERING_NAME: 'ERR_INVALID_GATHERING_NAME',
-  /** 乐观锁版本冲突 */
-  VERSION_CONFLICT: 'ERR_VERSION_CONFLICT',
+  /** 聚会人数已满（上限 10 人） */
+  GATHERING_FULL: 'GATHERING_FULL',
+  /** 状态不允许此操作 */
+  INVALID_STATE: 'INVALID_STATE',
+  /** 参与者不足 */
+  TOO_FEW_PARTICIPANTS: 'TOO_FEW_PARTICIPANTS',
+  /** 提名不足 */
+  TOO_FEW_NOMINATIONS: 'TOO_FEW_NOMINATIONS',
 
   // ── 参与者相关 ──
   /** 已加入该聚会 */
-  ALREADY_JOINED: 'ERR_ALREADY_JOINED',
+  ALREADY_JOINED: 'ALREADY_JOINED',
   /** 未加入该聚会 */
-  NOT_JOINED: 'ERR_NOT_JOINED',
-  /** 昵称无效 */
-  INVALID_NICKNAME: 'ERR_INVALID_NICKNAME',
-  /** 口味选择超限 */
-  TASTE_LIMIT_EXCEEDED: 'ERR_TASTE_LIMIT_EXCEEDED',
-  /** 无效的口味选项 */
-  INVALID_TASTE: 'ERR_INVALID_TASTE',
+  NOT_JOINED: 'NOT_JOINED',
+  /** 昵称格式不正确 */
+  INVALID_NICKNAME: 'INVALID_NICKNAME',
+
+  // ── 提名相关 ──
+  /** 提名已达上限（2 个） */
+  NOMINATION_LIMIT: 'NOMINATION_LIMIT',
+  /** 重复提名同一餐厅 */
+  DUPLICATE_NOMINATION: 'DUPLICATE_NOMINATION',
 
   // ── 投票相关 ──
-  /** 投票不存在 */
-  VOTE_NOT_FOUND: 'ERR_VOTE_NOT_FOUND',
-  /** 投票已结束 */
-  VOTE_ENDED: 'ERR_VOTE_ENDED',
   /** 已投过票 */
-  ALREADY_VOTED: 'ERR_ALREADY_VOTED',
-  /** 存在进行中的投票 */
-  VOTE_IN_PROGRESS: 'ERR_VOTE_IN_PROGRESS',
-
-  // ── 餐厅相关 ──
-  /** 餐厅不存在 */
-  RESTAURANT_NOT_FOUND: 'ERR_RESTAURANT_NOT_FOUND',
-
-  // ── 位置相关 ──
-  /** 无效的坐标 */
-  INVALID_LOCATION: 'ERR_INVALID_LOCATION',
+  ALREADY_VOTED: 'ALREADY_VOTED',
+  /** 投票已结束 */
+  VOTE_ENDED: 'VOTE_ENDED',
+  /** 无效的提名 ID */
+  INVALID_NOMINATION: 'INVALID_NOMINATION',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 /** 错误码对应的默认提示信息（中文） */
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
-  [ErrorCode.UNKNOWN]: '未知错误，请稍后重试',
-  [ErrorCode.VALIDATION_FAILED]: '参数校验失败',
-  [ErrorCode.UNAUTHORIZED]: '请先登录',
-  [ErrorCode.FORBIDDEN]: '无权执行此操作',
+  [ErrorCode.AUTH_REQUIRED]: '请先登录',
+  [ErrorCode.FORBIDDEN]: '无权限',
   [ErrorCode.NOT_FOUND]: '资源不存在',
-  [ErrorCode.RATE_LIMITED]: '操作过于频繁，请稍后重试',
+  [ErrorCode.VALIDATION_ERROR]: '参数校验失败',
+  [ErrorCode.INTERNAL_ERROR]: '服务器内部错误',
 
-  [ErrorCode.GATHERING_NOT_FOUND]: '聚会不存在',
-  [ErrorCode.GATHERING_ENDED]: '聚会已结束',
-  [ErrorCode.GATHERING_CANCELLED]: '聚会已取消',
-  [ErrorCode.INVALID_INVITE_CODE]: '邀请码无效',
-  [ErrorCode.INVALID_GATHERING_NAME]: '聚会名称无效',
-  [ErrorCode.VERSION_CONFLICT]: '数据已被更新，请刷新后重试',
+  [ErrorCode.GATHERING_FULL]: '聚会人数已满',
+  [ErrorCode.INVALID_STATE]: '当前状态不允许此操作',
+  [ErrorCode.TOO_FEW_PARTICIPANTS]: '参与者不足',
+  [ErrorCode.TOO_FEW_NOMINATIONS]: '提名不足',
 
   [ErrorCode.ALREADY_JOINED]: '你已加入该聚会',
-  [ErrorCode.NOT_JOINED]: '你未加入该聚会',
-  [ErrorCode.INVALID_NICKNAME]: '昵称格式无效（1-20个字符）',
-  [ErrorCode.TASTE_LIMIT_EXCEEDED]: '口味选择不能超过5个',
-  [ErrorCode.INVALID_TASTE]: '包含无效的口味选项',
+  [ErrorCode.NOT_JOINED]: '你还未加入该聚会',
+  [ErrorCode.INVALID_NICKNAME]: '昵称格式不正确（1-20个字符）',
 
-  [ErrorCode.VOTE_NOT_FOUND]: '投票不存在',
-  [ErrorCode.VOTE_ENDED]: '投票已结束',
+  [ErrorCode.NOMINATION_LIMIT]: '提名已达上限（2个）',
+  [ErrorCode.DUPLICATE_NOMINATION]: '重复提名同一餐厅',
+
   [ErrorCode.ALREADY_VOTED]: '你已投过票',
-  [ErrorCode.VOTE_IN_PROGRESS]: '当前已有进行中的投票',
-
-  [ErrorCode.RESTAURANT_NOT_FOUND]: '餐厅不存在',
-
-  [ErrorCode.INVALID_LOCATION]: '无效的坐标位置',
+  [ErrorCode.VOTE_ENDED]: '投票已结束',
+  [ErrorCode.INVALID_NOMINATION]: '无效的提名',
 };

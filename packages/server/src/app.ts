@@ -35,8 +35,10 @@ app.use('/api/gatherings', gatheringRoutes);
 app.use((_req, res) => {
   res.status(404).json({
     success: false,
-    code: 'ERR_NOT_FOUND',
-    message: '接口不存在',
+    error: {
+      code: 'NOT_FOUND',
+      message: '接口不存在',
+    },
   });
 });
 

@@ -26,7 +26,7 @@ const TEMPLATES = {
 
   /** 该出发了 */
   remindNow: (p: Participant) =>
-    `🚨 ${p.nickname}，建议出发时间已到（${p.departure_time ? formatTime(p.departure_time) : '现在'}），快出发吧！`,
+    `🚨 ${p.nickname}，建议出发时间已到（${p.suggested_depart_at ? formatTime(p.suggested_depart_at) : '现在'}），快出发吧！`,
 
   /** 已超过出发时间 */
   remindOverdue: (p: Participant) =>
@@ -66,8 +66,9 @@ async function writeMessage(
   const { error } = await supabaseAdmin.from('messages').insert({
     gathering_id: gatheringId,
     type,
-    text,
-    target_id: targetId || null,
+    content: text,
+    sender_id: null,
+    metadata: targetId ? { target_id: targetId } : null,
   });
 
   if (error) {
@@ -116,8 +117,8 @@ export async function checkGathering(gatheringId: string): Promise<void> {
 
   const g = gathering as Gathering;
 
-  // 只处理 confirmed 和 active 状态的聚会
-  if (g.status !== GatheringStatus.CONFIRMED && g.status !== GatheringStatus.ACTIVE) {
+  // 只处理 confirmed 和 departing 状态的聚会
+  if (g.status !== GatheringStatus.CONFIRMED && g.status !== GatheringStatus.DEPARTING) {
     return;
   }
 
@@ -140,15 +141,15 @@ export async function checkGathering(gatheringId: string): Promise<void> {
     if (p.status === ParticipantStatus.DEPARTED) continue;
 
     // 没有建议出发时间的跳过
-    if (!p.departure_time) continue;
+    if (!p.suggested_depart_at) continue;
 
-    const departureMs = new Date(p.departure_time).getTime();
+    const departureMs = new Date(p.suggested_depart_at).getTime();
     const remaining = departureMs - now;
     const reminders = p.reminders_sent || {};
 
     // 30 分钟提醒
     if (remaining <= 30 * 60 * 1000 && remaining > 10 * 60 * 1000 && !reminders.departure) {
-      await writeMessage(gatheringId, MessageType.REMINDER, TEMPLATES.remind30(p), p.id);
+      await writeMessage(gatheringId, MessageType.NUDGE, TEMPLATES.remind30(p), p.id);
       await supabaseAdmin
         .from('participants')
         .update({ reminders_sent: { ...reminders, departure: true } })
@@ -158,7 +159,7 @@ export async function checkGathering(gatheringId: string): Promise<void> {
 
     // 10 分钟提醒
     if (remaining <= 10 * 60 * 1000 && remaining > 0 && !reminders.late_warning) {
-      await writeMessage(gatheringId, MessageType.URGENT, TEMPLATES.remind10(p), p.id);
+      await writeMessage(gatheringId, MessageType.NUDGE, TEMPLATES.remind10(p), p.id);
       await supabaseAdmin
         .from('participants')
         .update({ reminders_sent: { ...reminders, late_warning: true } })
@@ -168,7 +169,7 @@ export async function checkGathering(gatheringId: string): Promise<void> {
 
     // 该出发了（已过出发时间但还没出发）
     if (remaining <= 0 && !reminders.late_warning) {
-      await writeMessage(gatheringId, MessageType.URGENT, TEMPLATES.remindNow(p), p.id);
+      await writeMessage(gatheringId, MessageType.NUDGE, TEMPLATES.remindNow(p), p.id);
       await supabaseAdmin
         .from('participants')
         .update({
@@ -207,13 +208,13 @@ export async function sendInstantNotice(
   }
 
   const messageType =
-    type === 'allDeparted' || type === 'allArrived'
-      ? MessageType.MILESTONE
+    type === 'allArrived'
+      ? MessageType.ALL_ARRIVED
       : type === 'departed'
-        ? MessageType.DEPART
+        ? MessageType.DEPARTED
         : type === 'arrived'
-          ? MessageType.ARRIVE
-          : MessageType.REMINDER;
+          ? MessageType.ARRIVED
+          : MessageType.NUDGE;
 
   await writeMessage(gatheringId, messageType, text, participant.id);
   await bumpVersion(gatheringId);
@@ -237,7 +238,7 @@ export function startReminderEngine(): void {
       const { data: gatherings, error } = await supabaseAdmin
         .from('gatherings')
         .select('id')
-        .in('status', [GatheringStatus.CONFIRMED, GatheringStatus.ACTIVE]);
+        .in('status', [GatheringStatus.CONFIRMED, GatheringStatus.DEPARTING]);
 
       if (error || !gatherings) return;
 

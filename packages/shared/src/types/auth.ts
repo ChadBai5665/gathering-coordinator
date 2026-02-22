@@ -33,10 +33,10 @@ export interface WxLoginParams {
 
 /** 登录响应 */
 export interface AuthResponse {
-  /** 访问令牌 */
-  access_token: string;
-  /** 刷新令牌 */
-  refresh_token: string;
+  /** 访问令牌（Supabase JWT） */
+  token: string;
   /** 用户资料 */
   user: UserProfile;
+  /** 刷新令牌（可选） */
+  refresh_token?: string;
 }

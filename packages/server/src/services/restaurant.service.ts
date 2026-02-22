@@ -4,7 +4,7 @@
  * 评分维度：口味匹配(20) + 最大距离(30) + 均衡度(20) + 评分(20) + 人均(10)
  */
 
-import type { Participant, Location, TravelInfo } from '@ontheway/shared';
+import type { Participant, Location, TravelInfo, AiSuggestion } from '@ontheway/shared';
 import { calculateCenter, calculateDistance } from '@ontheway/shared';
 import { searchPOI, routePlan, type POIResult } from './amap.service.js';
 import { config } from '../config/index.js';
@@ -128,6 +128,7 @@ function generateMockRestaurants(
         const dist = calculateDistance(p.location!, loc);
         return {
           participant_id: p.id,
+          nickname: p.nickname,
           distance: dist,
           duration: Math.round(dist / 8), // 约 30km/h
         };
@@ -231,6 +232,7 @@ async function scoreAndRank(
       // 路径规划获取实际行程（对 Top 候选再做）
       travelInfos.push({
         participant_id: p.id,
+        nickname: p.nickname,
         distance: straightDist,
         duration: Math.round(straightDist / 8), // 粗估，后续精算
       });
@@ -300,4 +302,53 @@ async function scoreAndRank(
   }
 
   return top5;
+}
+
+function buildReason(tastes: string[], candidate: RestaurantCandidate): string {
+  const t = tastes.slice(0, 3).join('、');
+  const maxDist = Math.max(...candidate.travel_infos.map((x) => x.distance), 0);
+  const maxDistKm = (maxDist / 1000).toFixed(1);
+  return `匹配口味：${t || '综合'}；兼顾大家距离（最远约${maxDistKm}km）`;
+}
+
+/**
+ * v2: 个人 AI 推荐（P0 使用规则算法）
+ * @returns 最多 3 家建议
+ */
+export async function buildAiSuggestions(
+  participants: Participant[],
+  tastes: string[],
+): Promise<AiSuggestion[]> {
+  if (config.aiProvider === 'llm') {
+    // P0: 先回退到规则算法，预留切换位
+    console.warn('[AiSuggest] AI_PROVIDER=llm 尚未实现，回退到 rules');
+  }
+
+  const withLocation = participants.filter((p) => isValidLocation(p.location));
+  if (withLocation.length === 0) return [];
+
+  const center = calculateCenter(withLocation.map((p) => p.location!));
+  const keywords = tastes.join('|') || '美食|餐厅';
+
+  // 无 AMAP_KEY 时用 mock
+  let candidates: RestaurantCandidate[];
+  if (!config.amapKey) {
+    candidates = generateMockRestaurants(center, participants);
+  } else {
+    const pois = await searchPOI(`${center.lng},${center.lat}`, keywords, 3000);
+    candidates = await scoreAndRank(pois, withLocation, tastes);
+  }
+
+  return candidates.slice(0, 3).map((c) => ({
+    amap_id: c.amap_id,
+    name: c.name,
+    type: c.type,
+    address: c.address,
+    location: c.location,
+    rating: c.rating,
+    cost: c.cost,
+    score: c.score,
+    reason: buildReason(tastes, c),
+    travel_infos: c.travel_infos,
+  }));
 }

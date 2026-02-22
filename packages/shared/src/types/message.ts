@@ -13,10 +13,12 @@ export interface Message {
   gathering_id: string;
   /** 消息类型 */
   type: MessageType;
-  /** 消息文本内容 */
-  text: string;
-  /** 关联目标 ID（如参与者 ID、投票 ID 等） */
-  target_id: string | null;
+  /** 消息内容 */
+  content: string;
+  /** 发送者 ID（profiles.id/auth.users.id，可为空） */
+  sender_id: string | null;
+  /** 附加数据（JSON） */
+  metadata: Record<string, unknown> | null;
   /** 创建时间（ISO 8601） */
   created_at: string;
 }

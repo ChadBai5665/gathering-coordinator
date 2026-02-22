@@ -29,6 +29,14 @@ export interface POIResult {
   distance: number;
 }
 
+/** POI 分页搜索结果 */
+export interface POIPageResult {
+  /** 结果列表 */
+  pois: POIResult[];
+  /** 总数（高德返回的 count） */
+  total: number;
+}
+
 /** 路径规划结果 */
 export interface RouteResult {
   /** 距离（米） */
@@ -95,9 +103,23 @@ export async function searchPOI(
   keywords: string,
   radius: number = 3000,
 ): Promise<POIResult[]> {
+  const { pois } = await searchPOIPage(location, keywords, radius, 1, 20);
+  return pois;
+}
+
+/**
+ * POI 搜索（分页）
+ */
+export async function searchPOIPage(
+  location: string,
+  keywords: string,
+  radius: number = 3000,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<POIPageResult> {
   if (!config.amapKey) {
     console.warn('[AmapService] 未配置 AMAP_KEY，返回空结果');
-    return [];
+    return { pois: [], total: 0 };
   }
 
   const url = new URL('https://restapi.amap.com/v3/place/around');
@@ -107,29 +129,34 @@ export async function searchPOI(
   url.searchParams.set('radius', String(radius));
   url.searchParams.set('types', '050000'); // 餐饮服务大类
   url.searchParams.set('sortrule', 'weight'); // 综合排序
-  url.searchParams.set('offset', '20'); // 每页 20 条
+  url.searchParams.set('offset', String(pageSize));
+  url.searchParams.set('page', String(page));
   url.searchParams.set('extensions', 'all');
 
   const data = await amapFetch(url.toString());
   const pois = (data.pois || []) as Array<Record<string, unknown>>;
+  const total = parseInt(String((data as any).count || '0'), 10) || 0;
 
-  return pois.map((poi) => {
-    const loc = parseLocation(poi.location as string);
-    const biz = (poi.biz_ext || {}) as Record<string, unknown>;
+  return {
+    pois: pois.map((poi) => {
+      const loc = parseLocation(poi.location as string);
+      const biz = (poi.biz_ext || {}) as Record<string, unknown>;
 
-    return {
-      id: poi.id as string,
-      name: poi.name as string,
-      type: (poi.typecode as string)?.startsWith('05')
-        ? ((poi.type as string) || '餐饮')
-        : ((poi.type as string) || '未知'),
-      address: (poi.address as string) || '',
-      location: loc,
-      rating: biz.rating ? parseFloat(biz.rating as string) : null,
-      cost: biz.cost ? parseFloat(biz.cost as string) : null,
-      distance: parseInt(poi.distance as string, 10) || 0,
-    };
-  });
+      return {
+        id: poi.id as string,
+        name: poi.name as string,
+        type: (poi.typecode as string)?.startsWith('05')
+          ? ((poi.type as string) || '餐饮')
+          : ((poi.type as string) || '未知'),
+        address: (poi.address as string) || '',
+        location: loc,
+        rating: biz.rating ? parseFloat(biz.rating as string) : null,
+        cost: biz.cost ? parseFloat(biz.cost as string) : null,
+        distance: parseInt(poi.distance as string, 10) || 0,
+      };
+    }),
+    total,
+  };
 }
 
 /**

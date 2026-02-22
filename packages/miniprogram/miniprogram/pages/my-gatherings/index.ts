@@ -4,7 +4,7 @@ import { authStore } from '../../stores/auth';
 
 Page({
   data: {
-    activeTab: 'all', // all | waiting | active | completed | cancelled
+    activeTab: 'all', // all | active | completed
     gatherings: [] as GatheringDetail[],
     filteredGatherings: [] as GatheringDetail[],
     loading: false,
@@ -31,9 +31,9 @@ Page({
     this.setData({ loading: true });
 
     try {
-      const gatherings = await api.getMyGatherings();
+      const result = await api.getMyGatherings({ limit: 100, offset: 0 });
       this.setData({
-        gatherings,
+        gatherings: result.gatherings,
         loading: false,
       });
       this.filterGatherings();
@@ -56,14 +56,12 @@ Page({
     const { activeTab, gatherings } = this.data;
     let filtered = gatherings;
 
-    if (activeTab === 'waiting') {
-      filtered = gatherings.filter(g => g.status === 'waiting');
-    } else if (activeTab === 'active') {
-      filtered = gatherings.filter(g => ['recommending', 'voting', 'confirmed', 'active'].includes(g.status));
+    if (activeTab === 'active') {
+      filtered = gatherings.filter((g) =>
+        ['waiting', 'nominating', 'voting', 'confirmed', 'departing'].includes(g.status),
+      );
     } else if (activeTab === 'completed') {
-      filtered = gatherings.filter(g => g.status === 'completed');
-    } else if (activeTab === 'cancelled') {
-      filtered = gatherings.filter(g => g.status === 'cancelled');
+      filtered = gatherings.filter((g) => g.status === 'completed');
     }
 
     this.setData({ filteredGatherings: filtered });

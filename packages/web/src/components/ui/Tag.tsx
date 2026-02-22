@@ -1,4 +1,5 @@
 import { Icon } from './Icon';
+import type { ReactNode } from 'react';
 
 const variantStyles = {
   default: 'bg-stone-100 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
@@ -13,7 +14,7 @@ const sizeStyles = {
 } as const;
 
 interface TagProps {
-  children: string;
+  children: ReactNode;
   variant?: keyof typeof variantStyles;
   size?: keyof typeof sizeStyles;
   removable?: boolean;
@@ -40,7 +41,7 @@ export function Tag({
         <button
           onClick={onRemove}
           className="rounded-full p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/10"
-          aria-label={`移除 ${children}`}
+          aria-label="移除标签"
         >
           <Icon name="close" size={12} />
         </button>

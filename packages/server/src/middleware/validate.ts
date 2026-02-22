@@ -38,8 +38,10 @@ export function validate(schema: ZodSchema) {
     if (!result.success) {
       const body: ApiErrorResponse = {
         success: false,
-        code: ErrorCode.VALIDATION_FAILED,
-        message: formatZodError(result.error),
+        error: {
+          code: ErrorCode.VALIDATION_ERROR,
+          message: formatZodError(result.error),
+        },
       };
       res.status(400).json(body);
       return;

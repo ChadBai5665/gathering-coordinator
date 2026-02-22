@@ -20,8 +20,8 @@ export interface Participant {
   id: string;
   /** 所属聚会 ID */
   gathering_id: string;
-  /** 用户 ID（游客为 null） */
-  user_id: string | null;
+  /** 用户 ID（auth.users.id） */
+  user_id: string;
   /** 昵称 */
   nickname: string;
   /** 当前位置 */
@@ -32,16 +32,24 @@ export interface Participant {
   tastes: string[];
   /** 参与者状态 */
   status: ParticipantStatus;
+  /** 是否为发起人 */
+  is_creator: boolean;
+  /** 预估到达时长（秒） */
+  estimated_duration: number | null;
+  /** 预估距离（米） */
+  estimated_distance: number | null;
   /** 建议出发时间（ISO 8601） */
-  departure_time: string | null;
-  /** 预计行程时长（秒） */
-  travel_duration: number | null;
+  suggested_depart_at: string | null;
   /** 实际出发时间（ISO 8601） */
   departed_at: string | null;
   /** 实际到达时间（ISO 8601） */
   arrived_at: string | null;
   /** 提醒发送记录 */
   reminders_sent: RemindersSent;
+  /** 加入时间（ISO 8601） */
+  created_at?: string;
+  /** 更新时间（ISO 8601） */
+  updated_at?: string;
 }
 
 /** 更新参与者位置参数 */

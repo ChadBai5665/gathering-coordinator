@@ -2,11 +2,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 import {
-  TASTE_OPTIONS,
-  MAX_TASTE_COUNT,
   validateGatheringName,
   validateNickname,
-  validateTastes,
   isValidInviteCode,
 } from '@ontheway/shared';
 
@@ -58,7 +55,6 @@ function CreateGatheringCard() {
 
   const [name, setName] = useState('');
   const [targetTime, setTargetTime] = useState('');
-  const [selectedTastes, setSelectedTastes] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -67,14 +63,6 @@ function CreateGatheringCard() {
     const d = new Date(Date.now() + 2 * 60 * 60 * 1000);
     return d.toISOString().slice(0, 16);
   }, []);
-
-  const toggleTaste = (taste: string) => {
-    setSelectedTastes((prev) => {
-      if (prev.includes(taste)) return prev.filter((t) => t !== taste);
-      if (prev.length >= MAX_TASTE_COUNT) return prev;
-      return [...prev, taste];
-    });
-  };
 
   const handleCreate = async () => {
     setError('');
@@ -96,12 +84,6 @@ function CreateGatheringCard() {
       return;
     }
 
-    const tasteResult = validateTastes(selectedTastes);
-    if (!tasteResult.valid) {
-      setError(tasteResult.message ?? '口味选择无效');
-      return;
-    }
-
     setLoading(true);
     try {
       const { createGathering, updateLocation } = await import('@/services/api');
@@ -111,7 +93,6 @@ function CreateGatheringCard() {
         name: name.trim(),
         target_time: selectedDate.toISOString(),
         creator_nickname: user?.nickname ?? '用户',
-        creator_tastes: selectedTastes,
       });
 
       // 尝试获取并上传位置（不阻塞流程）
@@ -188,39 +169,6 @@ function CreateGatheringCard() {
             />
           </div>
 
-          {/* Taste selector */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              口味偏好
-              <span className="text-xs text-slate-400 font-normal ml-2">
-                {selectedTastes.length}/{MAX_TASTE_COUNT}
-              </span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {TASTE_OPTIONS.map((taste) => {
-                const selected = selectedTastes.includes(taste);
-                return (
-                  <button
-                    key={taste}
-                    onClick={() => toggleTaste(taste)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      selected
-                        ? 'bg-primary text-white shadow-sm shadow-primary/30'
-                        : 'bg-stone-100 dark:bg-stone-800 text-slate-600 dark:text-slate-300 hover:bg-stone-200 dark:hover:bg-stone-700'
-                    } ${
-                      !selected && selectedTastes.length >= MAX_TASTE_COUNT
-                        ? 'opacity-40 cursor-not-allowed'
-                        : ''
-                    }`}
-                    disabled={!selected && selectedTastes.length >= MAX_TASTE_COUNT}
-                  >
-                    {taste}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Error */}
           {error && (
             <p className="text-xs text-red-500 flex items-center gap-1">
@@ -258,7 +206,6 @@ function JoinGatheringCard() {
 
   const [code, setCode] = useState('');
   const [nickname, setNickname] = useState(user?.nickname ?? '');
-  const [selectedTastes, setSelectedTastes] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -268,14 +215,6 @@ function JoinGatheringCard() {
   };
 
   const displayCode = code.length > 3 ? `${code.slice(0, 3)}-${code.slice(3)}` : code;
-
-  const toggleTaste = (taste: string) => {
-    setSelectedTastes((prev) => {
-      if (prev.includes(taste)) return prev.filter((t) => t !== taste);
-      if (prev.length >= MAX_TASTE_COUNT) return prev;
-      return [...prev, taste];
-    });
-  };
 
   const handleJoin = async () => {
     setError('');
@@ -291,18 +230,11 @@ function JoinGatheringCard() {
       return;
     }
 
-    const tasteResult = validateTastes(selectedTastes);
-    if (!tasteResult.valid) {
-      setError(tasteResult.message ?? '口味选择无效');
-      return;
-    }
-
     setLoading(true);
     try {
       const { joinGathering } = await import('@/services/api');
       await joinGathering(code, {
         nickname: nickname.trim(),
-        tastes: selectedTastes,
       });
       navigate(`/dashboard/${code}`);
       } catch (error: any) {
@@ -358,39 +290,6 @@ function JoinGatheringCard() {
               maxLength={20}
               className="w-full px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-colors text-sm"
             />
-          </div>
-
-          {/* Taste selector */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              口味偏好
-              <span className="text-xs text-slate-400 font-normal ml-2">
-                {selectedTastes.length}/{MAX_TASTE_COUNT}
-              </span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {TASTE_OPTIONS.map((taste) => {
-                const selected = selectedTastes.includes(taste);
-                return (
-                  <button
-                    key={taste}
-                    onClick={() => toggleTaste(taste)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      selected
-                        ? 'bg-teal-500 text-white shadow-sm shadow-teal-500/30'
-                        : 'bg-stone-100 dark:bg-stone-800 text-slate-600 dark:text-slate-300 hover:bg-stone-200 dark:hover:bg-stone-700'
-                    } ${
-                      !selected && selectedTastes.length >= MAX_TASTE_COUNT
-                        ? 'opacity-40 cursor-not-allowed'
-                        : ''
-                    }`}
-                    disabled={!selected && selectedTastes.length >= MAX_TASTE_COUNT}
-                  >
-                    {taste}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           {/* Error */}

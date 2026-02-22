@@ -6,7 +6,7 @@
 import { supabaseAdmin } from '../lib/supabase.js';
 import { routePlan } from './amap.service.js';
 import { calculateDepartureTime } from '@ontheway/shared';
-import type { Participant, Restaurant } from '@ontheway/shared';
+import type { Participant, Nomination } from '@ontheway/shared';
 
 /** 默认缓冲时间（分钟） */
 const BUFFER_MINUTES = 10;
@@ -35,19 +35,19 @@ export async function calculateDepartureTimes(gatheringCode: string): Promise<vo
   }
 
   // 查询已确认餐厅
-  const { data: restaurant, error: rErr } = await supabaseAdmin
-    .from('restaurants')
+  const { data: nomination, error: rErr } = await supabaseAdmin
+    .from('nominations')
     .select('*')
     .eq('gathering_id', gathering.id)
     .eq('is_confirmed', true)
     .single();
 
-  if (rErr || !restaurant) {
-    console.error('[TimeCalculator] 未找到已确认餐厅:', gathering.id);
+  if (rErr || !nomination) {
+    console.error('[TimeCalculator] 未找到已确认提名餐厅:', gathering.id);
     return;
   }
 
-  const restData = restaurant as Restaurant;
+  const nomData = nomination as Nomination;
 
   // 查询所有参与者
   const { data: participants, error: pErr } = await supabaseAdmin
@@ -68,28 +68,32 @@ export async function calculateDepartureTimes(gatheringCode: string): Promise<vo
     }
 
     let duration: number;
+    let distance: number | null = null;
 
     // 优先使用推荐阶段已有的行程信息
-    const existingInfo = restData.travel_infos?.find(
+    const existingInfo = nomData.travel_infos?.find(
       (t) => t.participant_id === p.id,
     );
 
     if (existingInfo && existingInfo.duration > 0) {
       duration = existingInfo.duration;
+      distance = existingInfo.distance;
     } else {
       // 重新路径规划
       try {
         const result = await routePlan(
           `${p.location.lng},${p.location.lat}`,
-          `${restData.location.lng},${restData.location.lat}`,
+          `${nomData.location.lng},${nomData.location.lat}`,
           'transit',
         );
         duration = result.duration;
+        distance = result.distance;
       } catch (err) {
         console.warn(`[TimeCalculator] 路径规划失败，使用估算: ${(err as Error).message}`);
         // 粗估：直线距离 / 25km/h
         const dist = existingInfo?.distance || 5000;
         duration = Math.round(dist / (25 * 1000 / 3600));
+        distance = existingInfo?.distance || dist;
       }
     }
 
@@ -100,12 +104,13 @@ export async function calculateDepartureTimes(gatheringCode: string): Promise<vo
       BUFFER_MINUTES,
     );
 
-    // 更新参与者
+    // 更新参与者（v2 字段）
     const { error: updateErr } = await supabaseAdmin
       .from('participants')
       .update({
-        departure_time: departureTime.toISOString(),
-        travel_duration: duration,
+        suggested_depart_at: departureTime.toISOString(),
+        estimated_duration: duration,
+        estimated_distance: distance,
       })
       .eq('id', p.id);
 

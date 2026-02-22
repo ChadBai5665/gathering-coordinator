@@ -4,6 +4,10 @@
  */
 
 import type { GatheringStatus } from '../constants/status.js';
+import type { Participant } from './participant.js';
+import type { Nomination } from './nomination.js';
+import type { Vote, VoteCountItem } from './vote.js';
+import type { Message } from './message.js';
 
 /** 聚会实体（对应 gatherings 表） */
 export interface Gathering {
@@ -33,24 +37,50 @@ export interface CreateGatheringParams {
   name: string;
   /** 目标到达时间（ISO 8601） */
   target_time: string;
-  /** 创建者昵称 */
-  creator_nickname: string;
-  /** 创建者口味偏好 */
-  creator_tastes?: string[];
+  /** 创建者昵称（可选） */
+  creator_nickname?: string;
 }
 
 /** 加入聚会请求参数 */
 export interface JoinGatheringParams {
-  /** 6位邀请码 */
-  code: string;
   /** 参与者昵称 */
   nickname: string;
-  /** 口味偏好 */
-  tastes?: string[];
+  /** 位置坐标（可选，前端自动获取） */
+  location?: {
+    lng: number;
+    lat: number;
+  };
+  /** 位置名称（可选） */
+  location_name?: string;
 }
 
 /** 聚会详情（包含参与者列表等聚合数据） */
 export interface GatheringDetail extends Gathering {
   /** 参与者数量 */
   participant_count: number;
+}
+
+/** 活跃投票（API 聚合返回） */
+export interface ActiveVote extends Vote {
+  /** 各提名票数 */
+  vote_counts: VoteCountItem[];
+  /** 已投票人数 */
+  total_voted: number;
+  /** 当前用户是否已投票 */
+  has_voted: boolean;
+}
+
+/** 聚会仪表盘状态（GET /api/gatherings/:code） */
+export interface GatheringState {
+  gathering: Gathering;
+  participants: Participant[];
+  nominations: Nomination[];
+  active_vote: ActiveVote | null;
+  messages: Message[];
+}
+
+/** 轮询返回（GET /api/gatherings/:code/poll） */
+export interface PollState extends Partial<GatheringState> {
+  changed: boolean;
+  version: number;
 }

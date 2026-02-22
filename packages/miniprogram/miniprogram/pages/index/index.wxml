@@ -3,7 +3,6 @@
     <text class="greeting">Hi, {{nickname}} 👋</text>
   </view>
 
-  <!-- 创建聚会卡片 -->
   <view class="action-card">
     <view class="card-title">创建聚会</view>
     <view class="form-group">
@@ -33,17 +32,11 @@
       </view>
     </view>
 
-    <view class="form-group">
-      <view class="form-label">口味偏好（可选）</view>
-      <taste-selector selected="{{selectedTastes}}" bindchange="onTasteChange" />
-    </view>
-
     <button class="btn-primary" bindtap="onCreateGathering" disabled="{{loading}}">
       创建聚会
     </button>
   </view>
 
-  <!-- 加入聚会卡片 -->
   <view class="action-card">
     <view class="card-title">加入聚会</view>
     <view class="form-group">
@@ -52,7 +45,7 @@
         placeholder="输入6位邀请码"
         bindinput="onInviteCodeInput"
         value="{{inviteCode}}"
-        maxlength="6"
+        maxlength="8"
       />
     </view>
     <button class="btn-secondary" bindtap="onJoinGathering" disabled="{{loading}}">
@@ -60,7 +53,6 @@
     </button>
   </view>
 
-  <!-- 进行中的聚会 -->
   <view class="section" wx:if="{{myGatherings.length > 0}}">
     <view class="section-header">
       <text class="section-title">进行中的聚会</text>

@@ -2,14 +2,17 @@ import type {
   ApiResponse,
   AuthResponse,
   Gathering,
-  GatheringDetail,
   Participant,
-  Restaurant,
-  Vote,
-  VoteDetail,
-  Message,
   CreateGatheringParams,
   JoinGatheringParams,
+  GatheringState,
+  PollState,
+  SearchRestaurantResult,
+  AiSuggestion,
+  Nomination,
+  Vote,
+  VoteCountItem,
+  VoteWinnerResult,
 } from '@ontheway/shared';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -39,17 +42,14 @@ function getToken(): string | null {
 }
 
 /** 通用请求方法 */
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -58,11 +58,9 @@ async function request<T>(
   });
 
   const json: ApiResponse<T> = await res.json();
-
   if (!json.success) {
-    throw new ApiError(json.code, json.message, res.status);
+    throw new ApiError(json.error.code, json.error.message, res.status);
   }
-
   return json.data;
 }
 
@@ -91,15 +89,25 @@ export function createGathering(params: CreateGatheringParams): Promise<Gatherin
   });
 }
 
-export function getGatheringByCode(code: string): Promise<GatheringDetail> {
-  return request<GatheringDetail>(`/gatherings/${code}`);
+export function getGatheringState(code: string): Promise<GatheringState> {
+  return request<GatheringState>(`/gatherings/${code}`);
 }
 
-export function getMyGatherings(): Promise<GatheringDetail[]> {
-  return request<GatheringDetail[]>('/gatherings/mine');
+export interface MyGatheringsResponse {
+  gatherings: Gathering[];
+  total: number;
 }
 
-export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'code'>): Promise<Participant> {
+export function getMyGatherings(params?: { status?: string; limit?: number; offset?: number }): Promise<MyGatheringsResponse> {
+  const q = new URLSearchParams();
+  if (params?.status) q.set('status', params.status);
+  if (typeof params?.limit === 'number') q.set('limit', String(params.limit));
+  if (typeof params?.offset === 'number') q.set('offset', String(params.offset));
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return request<MyGatheringsResponse>(`/gatherings/mine${suffix}`);
+}
+
+export function joinGathering(code: string, params: JoinGatheringParams): Promise<Participant> {
   return request<Participant>(`/gatherings/${code}/join`, {
     method: 'POST',
     body: JSON.stringify(params),
@@ -109,7 +117,7 @@ export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'c
 export function updateLocation(
   code: string,
   location: { lng: number; lat: number },
-  locationName?: string
+  locationName?: string,
 ): Promise<Participant> {
   return request<Participant>(`/gatherings/${code}/location`, {
     method: 'PATCH',
@@ -121,56 +129,93 @@ export function updateLocation(
   });
 }
 
-// ── Restaurants ──
-
-export function recommend(code: string): Promise<Restaurant[]> {
-  return request<Restaurant[]>(`/gatherings/${code}/recommend`, {
+export function startNominating(code: string): Promise<{ status: 'nominating' }> {
+  return request<{ status: 'nominating' }>(`/gatherings/${code}/start-nominating`, {
     method: 'POST',
   });
 }
 
-// ── Votes ──
+export function searchRestaurants(code: string, keyword: string, page: number = 1): Promise<{ restaurants: SearchRestaurantResult[]; total: number; page: number }> {
+  const q = new URLSearchParams({ keyword, page: String(page) });
+  return request<{ restaurants: SearchRestaurantResult[]; total: number; page: number }>(
+    `/gatherings/${code}/search-restaurants?${q.toString()}`,
+  );
+}
 
-export function startVote(code: string, restaurantIndex: number): Promise<Vote> {
-  return request<Vote>(`/gatherings/${code}/vote`, {
+export function aiSuggest(code: string, tastes: string[]): Promise<{ suggestions: AiSuggestion[] }> {
+  return request<{ suggestions: AiSuggestion[] }>(`/gatherings/${code}/ai-suggest`, {
     method: 'POST',
-    body: JSON.stringify({ restaurant_index: restaurantIndex }),
+    body: JSON.stringify({ tastes }),
   });
 }
 
-export function castVote(code: string, voteId: string, agree: boolean): Promise<VoteDetail> {
-  return request<VoteDetail>(`/gatherings/${code}/vote/${voteId}`, {
+export function nominate(code: string, params: {
+  amap_id: string;
+  name: string;
+  type?: string;
+  address?: string;
+  location: { lng: number; lat: number };
+  rating?: number;
+  cost?: number;
+  source: 'manual' | 'ai';
+  reason?: string;
+}): Promise<Nomination & { nominator_nickname?: string }> {
+  return request<Nomination & { nominator_nickname?: string }>(`/gatherings/${code}/nominate`, {
     method: 'POST',
-    body: JSON.stringify({ agree }),
+    body: JSON.stringify(params),
+  });
+}
+
+export function withdrawNomination(code: string, nominationId: string): Promise<{ deleted: true }> {
+  return request<{ deleted: true }>(`/gatherings/${code}/nominate/${nominationId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Voting ──
+
+export function startVoting(code: string): Promise<{ vote: Vote & { nominations: string[] } }> {
+  return request<{ vote: Vote & { nominations: string[] } }>(`/gatherings/${code}/start-voting`, {
+    method: 'POST',
+  });
+}
+
+export function castVote(
+  code: string,
+  voteId: string,
+  nominationId: string,
+): Promise<{
+  vote_counts: VoteCountItem[];
+  total_voted: number;
+  total_participants: number;
+  result: VoteWinnerResult | null;
+}> {
+  return request<{
+    vote_counts: VoteCountItem[];
+    total_voted: number;
+    total_participants: number;
+    result: VoteWinnerResult | null;
+  }>(`/gatherings/${code}/vote/${voteId}`, {
+    method: 'POST',
+    body: JSON.stringify({ nomination_id: nominationId }),
   });
 }
 
 // ── Actions ──
 
 export function depart(code: string): Promise<Participant> {
-  return request<Participant>(`/gatherings/${code}/depart`, {
-    method: 'POST',
-  });
+  return request<Participant>(`/gatherings/${code}/depart`, { method: 'POST' });
 }
 
-export function arrive(code: string): Promise<Participant> {
-  return request<Participant>(`/gatherings/${code}/arrive`, {
+export function arrive(code: string): Promise<{ participant: Participant; allArrived: boolean }> {
+  return request<{ participant: Participant; allArrived: boolean }>(`/gatherings/${code}/arrive`, {
     method: 'POST',
   });
 }
 
 // ── Polling ──
 
-export interface PollResponse {
-  changed: boolean;
-  version: number;
-  gathering?: GatheringDetail;
-  participants?: Participant[];
-  restaurants?: Restaurant[];
-  active_vote?: VoteDetail | null;
-  messages?: Message[];
+export function poll(code: string, version: number): Promise<PollState> {
+  return request<PollState>(`/gatherings/${code}/poll?version=${version}`);
 }
 
-export function poll(code: string, version: number): Promise<PollResponse> {
-  return request<PollResponse>(`/gatherings/${code}/poll?version=${version}`);
-}

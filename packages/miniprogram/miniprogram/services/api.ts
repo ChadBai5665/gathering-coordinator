@@ -2,14 +2,17 @@ import type {
   ApiResponse,
   AuthResponse,
   Gathering,
-  GatheringDetail,
   Participant,
-  Restaurant,
-  Vote,
-  VoteDetail,
-  Message,
   CreateGatheringParams,
   JoinGatheringParams,
+  MyGatheringsResponse,
+  PollResponse,
+  SearchRestaurantResult,
+  AiSuggestion,
+  Nomination,
+  Vote,
+  VoteCountItem,
+  VoteWinnerResult,
 } from './types';
 
 /** API 错误 */
@@ -39,61 +42,57 @@ function getBaseUrl(): string {
   return app.globalData.apiBaseUrl;
 }
 
-/** 请求选项（不含 url，由 request 内部拼接） */
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   data?: string | WechatMiniprogram.IAnyObject | ArrayBuffer;
   header?: Record<string, string>;
 }
 
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const pairs: string[] = [];
+  for (const key of Object.keys(params)) {
+    const value = params[key];
+    if (value === undefined || value === null) continue;
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  }
+  return pairs.join('&');
+}
+
 /** 通用请求方法 */
-async function request<T>(
-  path: string,
-  options: RequestOptions = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.header as Record<string, string> || {}),
+    ...(options.header || {}),
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
-  // 调试日志：请求信息
-  const requestUrl = `${getBaseUrl()}${path}`;
-  console.log('[API Request] ===== START =====');
-  console.log('[API Request] URL:', requestUrl);
-  console.log('[API Request] Method:', options.method || 'GET');
-  console.log('[API Request] Data:', options.data);
-  console.log('[API Request] Data Type:', typeof options.data);
-  console.log('[API Request] Headers:', headers);
-  console.log('[API Request] ===== END =====');
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   return new Promise((resolve, reject) => {
     wx.request({
-      url: requestUrl,
-      method: options.method as any || 'GET',
+      url: `${getBaseUrl()}${path}`,
+      method: (options.method as any) || 'GET',
       data: options.data,
       header: headers,
       success: (res) => {
-        console.log('[API Response] Status:', res.statusCode);
-        console.log('[API Response] Data:', res.data);
-
         const json = res.data as ApiResponse<T>;
 
-        if (!json.success) {
-          console.error('[API Error] Code:', json.code, 'Message:', json.message);
-          reject(new ApiError(json.code, json.message, res.statusCode));
+        if (!json || typeof json !== 'object') {
+          reject(new ApiError('INVALID_RESPONSE', '服务器返回格式异常', res.statusCode));
           return;
         }
 
-        console.log('[API Success] Data:', json.data);
+        if (!json.success) {
+          reject(new ApiError(json.error.code, json.error.message, res.statusCode));
+          return;
+        }
+
         resolve(json.data);
       },
       fail: (err) => {
-        console.error('[API Fail] Error:', err.errMsg);
-        reject(new ApiError('NETWORK_ERROR', err.errMsg));
+        reject(new ApiError('NETWORK_ERROR', err.errMsg || '网络请求失败'));
       },
     });
   });
@@ -102,13 +101,6 @@ async function request<T>(
 // ── Auth ──
 
 export function guestLogin(nickname: string): Promise<AuthResponse> {
-  console.log('[Guest Login] ===== START =====');
-  console.log('[Guest Login] Input nickname:', nickname);
-  console.log('[Guest Login] Nickname type:', typeof nickname);
-  console.log('[Guest Login] Nickname length:', nickname.length);
-  console.log('[Guest Login] Nickname charCodes:', Array.from(nickname).map(c => c.charCodeAt(0)));
-  console.log('[Guest Login] ===== END =====');
-
   return request<AuthResponse>('/auth/guest', {
     method: 'POST',
     data: { nickname },
@@ -116,7 +108,6 @@ export function guestLogin(nickname: string): Promise<AuthResponse> {
 }
 
 export function wechatLogin(code: string): Promise<AuthResponse> {
-  // TODO: 实现微信登录逻辑
   return request<AuthResponse>('/auth/wechat', {
     method: 'POST',
     data: { code },
@@ -132,15 +123,27 @@ export function createGathering(params: CreateGatheringParams): Promise<Gatherin
   });
 }
 
-export function getGatheringByCode(code: string): Promise<GatheringDetail> {
-  return request<GatheringDetail>(`/gatherings/${code}`);
+export function getGatheringByCode(code: string) {
+  return request<{
+    gathering: Gathering;
+    participants: Participant[];
+    nominations: Nomination[];
+    active_vote: (Vote & { vote_counts: VoteCountItem[]; total_voted: number; has_voted: boolean }) | null;
+    messages: any[];
+  }>(`/gatherings/${code}`);
 }
 
-export function getMyGatherings(): Promise<GatheringDetail[]> {
-  return request<GatheringDetail[]>('/gatherings/mine');
+export function getMyGatherings(params?: { status?: string; limit?: number; offset?: number }): Promise<MyGatheringsResponse> {
+  const query = buildQuery({
+    status: params?.status,
+    limit: params?.limit,
+    offset: params?.offset,
+  });
+  const suffix = query ? `?${query}` : '';
+  return request<MyGatheringsResponse>(`/gatherings/mine${suffix}`);
 }
 
-export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'code'>): Promise<Participant> {
+export function joinGathering(code: string, params: JoinGatheringParams): Promise<Participant> {
   return request<Participant>(`/gatherings/${code}/join`, {
     method: 'POST',
     data: params,
@@ -150,7 +153,7 @@ export function joinGathering(code: string, params: Omit<JoinGatheringParams, 'c
 export function updateLocation(
   code: string,
   location: { lat: number; lng: number },
-  locationName?: string
+  locationName?: string,
 ): Promise<Participant> {
   return request<Participant>(`/gatherings/${code}/location`, {
     method: 'PATCH',
@@ -162,27 +165,75 @@ export function updateLocation(
   });
 }
 
-// ── Restaurants ──
-
-export function recommend(code: string): Promise<Restaurant[]> {
-  return request<Restaurant[]>(`/gatherings/${code}/recommend`, {
+export function startNominating(code: string): Promise<{ status: 'nominating' }> {
+  return request<{ status: 'nominating' }>(`/gatherings/${code}/start-nominating`, {
     method: 'POST',
   });
 }
 
-// ── Votes ──
+export function searchRestaurants(code: string, keyword: string, page: number = 1): Promise<{ restaurants: SearchRestaurantResult[]; total: number; page: number }> {
+  const query = buildQuery({ keyword, page });
+  return request<{ restaurants: SearchRestaurantResult[]; total: number; page: number }>(
+    `/gatherings/${code}/search-restaurants?${query}`,
+  );
+}
 
-export function startVote(code: string, restaurantIndex: number): Promise<Vote> {
-  return request<Vote>(`/gatherings/${code}/vote`, {
+export function aiSuggest(code: string, tastes: string[]): Promise<{ suggestions: AiSuggestion[] }> {
+  return request<{ suggestions: AiSuggestion[] }>(`/gatherings/${code}/ai-suggest`, {
     method: 'POST',
-    data: { restaurant_index: restaurantIndex },
+    data: { tastes },
   });
 }
 
-export function castVote(code: string, voteId: string, agree: boolean): Promise<VoteDetail> {
-  return request<VoteDetail>(`/gatherings/${code}/vote/${voteId}`, {
+export function nominate(code: string, params: {
+  amap_id: string;
+  name: string;
+  type?: string;
+  address?: string;
+  location: { lng: number; lat: number };
+  rating?: number;
+  cost?: number;
+  source: 'manual' | 'ai';
+  reason?: string;
+}): Promise<Nomination & { nominator_nickname?: string }> {
+  return request<Nomination & { nominator_nickname?: string }>(`/gatherings/${code}/nominate`, {
     method: 'POST',
-    data: { agree },
+    data: params,
+  });
+}
+
+export function withdrawNomination(code: string, nominationId: string): Promise<{ deleted: true }> {
+  return request<{ deleted: true }>(`/gatherings/${code}/nominate/${nominationId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Voting ──
+
+export function startVoting(code: string): Promise<{ vote: Vote & { nominations: string[] } }> {
+  return request<{ vote: Vote & { nominations: string[] } }>(`/gatherings/${code}/start-voting`, {
+    method: 'POST',
+  });
+}
+
+export function castVote(
+  code: string,
+  voteId: string,
+  nominationId: string,
+): Promise<{
+  vote_counts: VoteCountItem[];
+  total_voted: number;
+  total_participants: number;
+  result: VoteWinnerResult | null;
+}> {
+  return request<{
+    vote_counts: VoteCountItem[];
+    total_voted: number;
+    total_participants: number;
+    result: VoteWinnerResult | null;
+  }>(`/gatherings/${code}/vote/${voteId}`, {
+    method: 'POST',
+    data: { nomination_id: nominationId },
   });
 }
 
@@ -194,23 +245,13 @@ export function depart(code: string): Promise<Participant> {
   });
 }
 
-export function arrive(code: string): Promise<Participant> {
-  return request<Participant>(`/gatherings/${code}/arrive`, {
+export function arrive(code: string): Promise<{ participant: Participant; allArrived: boolean }> {
+  return request<{ participant: Participant; allArrived: boolean }>(`/gatherings/${code}/arrive`, {
     method: 'POST',
   });
 }
 
 // ── Polling ──
-
-export interface PollResponse {
-  changed: boolean;
-  version: number;
-  gathering?: GatheringDetail;
-  participants?: Participant[];
-  restaurants?: Restaurant[];
-  active_vote?: VoteDetail | null;
-  messages?: Message[];
-}
 
 export function poll(code: string, version: number): Promise<PollResponse> {
   const safeVersion = Number.isFinite(version) ? version : 0;

@@ -1,7 +1,7 @@
 # 碰个头（OnTheWay）开发进度
 
 > 项目目录: `D:\AICoding\Ontheway`
-> 更新: 2025-02-12
+> 更新: 2026-02-14
 
 ---
 
@@ -193,3 +193,49 @@
 3. **环境变量配置** - 正确配置 Supabase 和 AMap 密钥
 4. **Deployment Protection** - 关闭 Vercel 认证保护
 5. **域名绑定** - Promote to Production 更新生产域名
+
+---
+
+## v2 Upgrade: 后端升级（nominating + 选择制投票 + departing）🔄 进行中
+
+**开始时间**: 2026-02-14  
+**目标**: 将 v1（recommend + 同意/反对投票）后端升级为 v2（提名 + 选择制投票 + departing 状态机），并以 `packages/shared` 作为前后端唯一契约来源。  
+**重要约束**: v2 使用“全新 Supabase 项目/库”，不迁移 v1 线上数据；错误响应统一为 `{ success:false, error:{ code, message } }`。
+
+### 已落地（代码层面）
+
+| Item | 状态 | 说明 |
+|------|------|------|
+| 1) 契约与错误格式 | ✅ | `ApiErrorResponse` 改为 `error:{code,message}`；404/校验/鉴权统一格式 |
+| 2) 错误码与状态机 | ✅ | 错误码按 PRD-v2；Gathering/Participant/Vote 状态枚举按 v2 |
+| 3) 数据模型（提名/投票/消息） | ✅ | 新增 `types/nomination.ts`；投票改为 `nomination_id`；messages 改为 `content/metadata/sender_id` |
+| 4) Supabase v2 迁移 | ✅ | 新增 `supabase/migrations/20260214000001_v2_refactor.sql`（restaurants→nominations，votes/vote_records/messages/participants/gatherings 约束更新，RLS 与 realtime publication） |
+| 5) v2 路由实现 | ✅ | gatherings 全套：创建/加入/详情/我的/位置、start-nominating、搜索 POI、nominate/withdraw、start-voting、vote、depart/arrive、poll(含超时结算) |
+| 6) AI suggest（P0 规则版） | ✅ | `POST /api/gatherings/:code/ai-suggest`：AMap 搜索 + 打分 + 模板化 reason，预留 provider 开关 |
+| 7) 结算与出发时间计算 | ✅ | 平票 tie-break：count > score > created_at；确认 winner 后写 participants 的 v2 字段 |
+| 8) 最小单测 | ✅ | vote settlement tie-break 单测已补 |
+| 9) Web 编译对齐 | ✅ | 为适配 shared breaking changes，web 端已改到可编译（功能联调仍需跑通新库） |
+
+### 待办（需要你确认/配合的外部动作）
+
+| Item | 状态 | 说明 |
+|------|------|------|
+| 新建 Supabase v2 项目/库 | ⏳ | 创建新项目（例如 `ontheway-v2-dev`）并替换 `.env` / Vercel env 指向新项目 |
+| 执行 migrations | ⏳ | 在新项目中执行 `supabase/migrations/*`（至少包含 v2 refactor） |
+| 微信登录（小程序） | ⏳ | `POST /api/auth/wechat` 仍未实现 |
+| 路由级测试（supertest） | ⏳ | 覆盖 nomination limit/duplicate、start-nominating 前置、start-voting nominations<2、重复投票、depart/arrive 状态 |
+| reminder engine 部署可靠性 | ⏳ | 目前是常驻 interval（serverless 不可靠），后续迁移到 Cron/Edge |
+
+### v2 对齐点（给前端/小程序）
+
+1. 错误结构：所有失败均为 `{ success:false, error:{ code, message } }`
+2. 核心聚合接口：`GET /api/gatherings/:code` 与 `GET /api/gatherings/:code/poll?version=N`
+3. 关键命名：`nominations`（不再写 `restaurants`），messages 用 `content/metadata`
+
+### 本地验证命令（开发者自测）
+
+```bash
+pnpm -r build
+pnpm --filter @ontheway/server test
+pnpm --filter @ontheway/web build
+```

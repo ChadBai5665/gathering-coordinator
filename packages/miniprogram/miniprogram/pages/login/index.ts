@@ -1,4 +1,4 @@
-﻿import * as api from '../../services/api';
+import * as api from '../../services/api';
 import { authStore } from '../../stores/auth';
 
 Page({
@@ -28,7 +28,7 @@ Page({
       const response = await api.guestLogin(this.data.nickname);
 
       // 保存认证信息
-      authStore.login(response.access_token, response.user);
+      authStore.login(response.token, response.user);
 
       wx.showToast({
         title: '登录成功',

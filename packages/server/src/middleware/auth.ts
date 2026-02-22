@@ -76,7 +76,7 @@ export async function authMiddleware(
   try {
     const ok = await verifyAndAttach(req);
     if (!ok) {
-      throw new AppError(401, ErrorCode.UNAUTHORIZED, '请先登录');
+      throw new AppError(401, ErrorCode.AUTH_REQUIRED, '请先登录');
     }
     next();
   } catch (err) {

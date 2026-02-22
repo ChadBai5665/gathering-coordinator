@@ -1,163 +1,67 @@
-# Ontheway 聚会协调器 - 项目状态
+# Ontheway（OnTheWay）- 项目状态
 
-> 最后更新: 2025-02-12
+> 最后更新: 2026-02-14
 > 项目路径: `D:/AICoding/Ontheway`
 
 ---
 
-## 项目概述
+## 当前主线
 
-**产品定位**: 微信小程序 + Web 端的聚会协调工具
+**当前主线**: v2 后端升级（nominating + 选择制投票 + departing）  
+**关键文档**:
+- `docs/PRD-v2.md`
+- `docs/architecture-v2.md`
+- `docs/ui-requirements.md`
+- `docs/progress.md`（进度唯一记录，前后端/Agent 统一看这里）
 
-**技术栈**:
-- 前端: React (Web) + 微信小程序
-- 后端: Node.js + Express + Supabase
-- 部署: Vercel (生产环境)
-
-**生产地址**: https://gathering-coordinator-chadbais-projects.vercel.app
-**小程序 AppID**: wx3fcfcb3d937febad
-
----
-
-## 目录结构
-
-```
-D:/AICoding/Ontheway/
-├── packages/
-│   ├── miniprogram/          # 微信小程序
-│   │   └── miniprogram/
-│   │       ├── pages/        # 页面
-│   │       │   └── login/    # 登录页
-│   │       └── services/
-│   │           └── api.ts    # API 请求封装
-│   ├── web/                  # Web 端
-│   │   └── src/
-│   │       └── pages/
-│   │           ├── LoginPage.tsx
-│   │           └── HomePage.tsx
-│   ├── server/               # 后端服务
-│   │   └── src/
-│   │       └── routes/
-│   │           └── auth.ts   # 认证接口
-│   └── shared/               # 共享代码
-├── docs/                     # 文档目录
-│   ├── project-status.md     # 本文件
-│   └── logo-and-images-inventory.md  # Logo 使用清单
-├── assets/
-│   └── logo.png              # 项目主 Logo
-├── CLAUDE.md                 # Claude 协作规范
-└── README.md                 # 项目说明
-```
+**线上现状（v1）**: 仍存在旧版生产环境（v1 API + v1 数据库）。  
+**v2 策略**: 使用全新 Supabase 项目/库，不迁移 v1 线上数据；v2 可以 break v1 客户端。
 
 ---
 
-## 开发阶段
+## v2 关键破坏性变更（前端需要知道）
 
-### ✅ Phase 1-3: 已完成并部署
-- Web 端基础功能
-- 后端 API
-- Vercel 生产部署
-
-### 🚧 Phase 4: 小程序开发中
-- 骨架已搭建
-- AppID 已配置
-- **当前问题**: 登录功能调试中
+1. 错误响应统一为：`{ success:false, error:{ code, message } }`
+2. 错误码字符串更新（无 `ERR_` 前缀），以 PRD-v2 为准
+3. 状态机更新：
+   - Gathering：`waiting | nominating | voting | confirmed | departing | completed`
+   - Participant：`joined | departed | arrived`
+   - Vote：`active | resolved`
+4. 数据模型更新：`nominations` 替代 v1 `restaurants`；投票记录从 `agree` 改为 `nomination_id`
 
 ---
 
-## 当前问题追踪
+## v2 后端落地状态（代码）
 
-### 🔴 P0 - 小程序登录失败 (进行中)
+**已完成**:
+- shared 契约升级：错误结构/错误码/状态枚举/类型（nomination、vote、message、gathering 聚合）
+- server 路由升级：创建/加入/详情/我的/位置、提名(手动+AI P0)、选择制投票、depart/arrive、poll(含超时结算)
+- Supabase v2 迁移：`supabase/migrations/20260214000001_v2_refactor.sql`
+- 最小单测：vote tie-break 规则
 
-**问题描述**:
-- 现象: 输入昵称点击"快速进入"后提示 `request:fail`
-- 后端验证: curl 测试接口正常
-- 编码问题: 后端收到的 nickname 是乱码 `�����û�`（应该是"测试用户"）
-
-**已完成操作**:
-1. ✅ 添加调试日志到 `packages/miniprogram/miniprogram/services/api.ts`
-   - `request` 函数: 记录请求 URL、method、data、headers
-   - `guestLogin` 函数: 记录 nickname 及其 Unicode 编码
-
-**下一步**:
-- 等待用户在微信开发者工具中测试
-- 收集控制台日志和网络请求详情
-- 根据日志分析编码/序列化问题
-- 实施针对性修复
-
-**相关文件**:
-- `packages/miniprogram/miniprogram/services/api.ts` (已修改)
-- `packages/miniprogram/miniprogram/pages/login/index.ts`
-- `packages/server/src/routes/auth.ts`
+**未完成/风险**:
+- v2 新 Supabase 项目尚未创建或尚未切换 env（这是 v2 联调的硬前置）
+- `POST /api/auth/wechat` 仍未实现（小程序阶段）
+- reminder engine 仍为常驻 interval（serverless 部署不可靠，后续需迁移到 Cron/Edge）
+- 路由级测试覆盖不足（建议补 supertest）
 
 ---
 
-### 🟡 P1 - Logo 不统一 (待用户提供资源)
+## 如何“让 Agent 看见进度”
 
-**问题描述**:
-- Web 端: 使用渐变背景 + Material Icon
-- 小程序: 使用 Emoji 🍽️
-- 期望: 使用统一的 `assets/logo.png`
-
-**待办**:
-- 等待用户提供不同尺寸的 Logo 资源包
-- 替换 Web 端 Logo (LoginPage.tsx, HomePage.tsx)
-- 替换小程序 Logo (login/index.wxml)
-
-**相关文件**:
-- `packages/web/src/pages/LoginPage.tsx` (line 53-55)
-- `packages/web/src/pages/HomePage.tsx` (line 22-24)
-- `packages/miniprogram/miniprogram/pages/login/index.wxml` (line 3)
-- `docs/logo-and-images-inventory.md` (详细清单)
+1. 任何 Agent 都只能看到“仓库里的事实”（代码、文档、git 变更），看不到你我对话里的隐含进度。
+2. 因此进度以 `docs/progress.md` 为准：每次完成一个 Phase/验收点，就在 v2 Upgrade 区块打勾或更新状态。
+3. 快速自查（任何 Agent/前端同学都可执行）：
+   - `git status -sb` 看当前改动
+   - `pnpm -r build` 确认契约与实现仍一致
 
 ---
 
 ## 快速命令
 
-### 启动开发环境
 ```bash
 cd D:/AICoding/Ontheway
-pnpm install
-pnpm dev
+pnpm -r build
+pnpm --filter @ontheway/server test
+pnpm --filter @ontheway/web build
 ```
-
-### 查看文档
-```bash
-# 查看项目状态
-cat docs/project-status.md
-
-# 查看 Logo 清单
-cat docs/logo-and-images-inventory.md
-```
-
-### 测试后端接口
-```bash
-curl -X POST https://gathering-coordinator-chadbais-projects.vercel.app/api/auth/guest \
-  -H "Content-Type: application/json" \
-  -d '{"nickname":"测试用户"}'
-```
-
----
-
-## 协作提示
-
-**给新终端的 Claude**:
-1. 项目路径: `D:/AICoding/Ontheway`
-2. 先读取: `docs/project-status.md` (本文件)
-3. 再读取: `CLAUDE.md` (协作规范)
-4. 查看: `docs/logo-and-images-inventory.md` (如涉及 UI)
-
-**关键原则**:
-- 问题分析: 先找根本原因，不接受临时绕过
-- 修改前先阅读相关文件
-- 完成后必须验证
-- 中文为主，专有名词中英对照
-
----
-
-## 更新日志
-
-### 2025-02-12
-- 创建项目状态文档
-- 添加小程序登录调试日志
-- 记录当前 P0/P1 问题

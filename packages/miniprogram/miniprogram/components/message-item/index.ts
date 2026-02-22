@@ -1,4 +1,4 @@
-﻿import type { Message } from '../../services/types';
+import type { Message } from '../../services/types';
 import { MessageType } from '../../services/constants';
 
 Component({
@@ -10,7 +10,7 @@ Component({
   },
 
   data: {
-    iconText: '鈩癸笍',
+    iconText: 'i',
     messageClass: 'system',
   },
 
@@ -19,20 +19,21 @@ Component({
       if (!message) return;
 
       const iconMap: Record<string, string> = {
-        [MessageType.SYSTEM]: '鈩癸笍',
-        [MessageType.JOIN]: '馃憢',
-        [MessageType.DEPART]: '馃殫',
-        [MessageType.ARRIVE]: '✅',
-        [MessageType.VOTE]: '🗳️',
-        [MessageType.VOTE_RESULT]: '馃搳',
-        [MessageType.RESTAURANT_CONFIRMED]: '馃帀',
-        [MessageType.REMINDER]: '🔔',
-        [MessageType.URGENT]: '馃毃',
-        [MessageType.MILESTONE]: '馃弳',
+        [MessageType.PARTICIPANT_JOINED]: 'J',
+        [MessageType.NOMINATING_STARTED]: 'N',
+        [MessageType.RESTAURANT_NOMINATED]: 'R',
+        [MessageType.NOMINATION_WITHDRAWN]: 'W',
+        [MessageType.VOTE_STARTED]: 'V',
+        [MessageType.VOTE_PASSED]: 'P',
+        [MessageType.VOTE_REJECTED]: 'X',
+        [MessageType.DEPARTED]: 'D',
+        [MessageType.ARRIVED]: 'A',
+        [MessageType.NUDGE]: '!',
+        [MessageType.ALL_ARRIVED]: 'OK',
       };
 
       this.setData({
-        iconText: iconMap[message.type] || '鈩癸笍',
+        iconText: iconMap[message.type] || 'i',
         messageClass: message.type,
       });
     },
@@ -48,4 +49,3 @@ Component({
     },
   },
 });
-

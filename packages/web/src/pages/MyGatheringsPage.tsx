@@ -1,33 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GatheringStatus, formatInviteCode } from '@ontheway/shared';
-import type { GatheringDetail } from '@ontheway/shared';
+import type { Gathering } from '@ontheway/shared';
 
-type StatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
+type StatusFilter = 'all' | 'active' | 'completed';
 
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: '全部' },
   { key: 'active', label: '进行中' },
   { key: 'completed', label: '已完成' },
-  { key: 'cancelled', label: '已取消' },
 ];
 
 function getStatusBadge(status: string) {
   switch (status) {
     case GatheringStatus.WAITING:
       return { label: '等待中', className: 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300' };
-    case GatheringStatus.RECOMMENDING:
-      return { label: '推荐中', className: 'bg-primary/10 text-primary' };
+    case GatheringStatus.NOMINATING:
+      return { label: '提名中', className: 'bg-primary/10 text-primary' };
     case GatheringStatus.VOTING:
       return { label: '投票中', className: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' };
     case GatheringStatus.CONFIRMED:
       return { label: '已确认', className: 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' };
-    case GatheringStatus.ACTIVE:
-      return { label: '进行中', className: 'bg-primary/10 text-primary' };
+    case GatheringStatus.DEPARTING:
+      return { label: '出发中', className: 'bg-primary/10 text-primary' };
     case GatheringStatus.COMPLETED:
       return { label: '已完成', className: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' };
-    case GatheringStatus.CANCELLED:
-      return { label: '已取消', className: 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400' };
     default:
       return { label: status, className: 'bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-300' };
   }
@@ -36,17 +33,17 @@ function getStatusBadge(status: string) {
 function isActiveStatus(status: string): boolean {
   return ([
     GatheringStatus.WAITING,
-    GatheringStatus.RECOMMENDING,
+    GatheringStatus.NOMINATING,
     GatheringStatus.VOTING,
     GatheringStatus.CONFIRMED,
-    GatheringStatus.ACTIVE,
+    GatheringStatus.DEPARTING,
   ] as string[]).includes(status);
 }
 
 export default function MyGatheringsPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<StatusFilter>('all');
-  const [gatherings, setGatherings] = useState<GatheringDetail[]>([]);
+  const [gatherings, setGatherings] = useState<Gathering[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,7 +53,7 @@ export default function MyGatheringsPage() {
     try {
       const { getMyGatherings } = await import('@/services/api');
       const data = await getMyGatherings();
-      setGatherings(data);
+      setGatherings(data.gatherings);
     } catch {
       setError('加载失败，请重试');
     } finally {
@@ -72,7 +69,6 @@ export default function MyGatheringsPage() {
     if (filter === 'all') return true;
     if (filter === 'active') return isActiveStatus(g.status);
     if (filter === 'completed') return g.status === GatheringStatus.COMPLETED;
-    if (filter === 'cancelled') return g.status === GatheringStatus.CANCELLED;
     return true;
   });
 
@@ -187,7 +183,8 @@ export default function MyGatheringsPage() {
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="material-icons-round text-sm">people</span>
-                      {gathering.participant_count}人
+                      {/* v2: participant_count 由详情接口提供 */}
+                      人数见详情
                     </span>
                   </div>
                 </button>

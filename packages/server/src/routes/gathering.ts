@@ -1,6 +1,6 @@
 /**
- * 聚会路由 /api/gatherings
- * 核心业务：创建/加入/推荐/投票/出发/到达/轮询
+ * 聚会路由 /api/gatherings（v2）
+ * 核心业务：创建/加入/提名/投票/出发/到达/轮询
  */
 
 import { Router, type Router as RouterType } from 'express';
@@ -21,22 +21,40 @@ import {
   validateTastes,
   NICKNAME_MAX_LENGTH,
   MAX_TASTE_COUNT,
+  calculateCenter,
+  calculateDistance,
+  getDefaultCenter,
 } from '@ontheway/shared';
 import type {
   Gathering,
   Participant,
-  Restaurant,
+  Nomination,
   Vote,
   VoteRecord,
+  Message,
+  SearchRestaurantResult,
+  AiSuggestion,
+  VoteCountItem,
+  VoteWinnerResult,
 } from '@ontheway/shared';
-import { recommend } from '../services/restaurant.service.js';
-import { calculateDepartureTimes } from '../services/time-calculator.service.js';
-import { sendInstantNotice } from '../services/reminder.service.js';
+
+import { searchPOIPage } from '../services/amap.service.js';
+import { buildAiSuggestions } from '../services/restaurant.service.js';
+import {
+  calculateTravelInfos,
+  computeNominationScore,
+  isValidLocation,
+} from '../services/nomination.service.js';
+import { settleActiveVoteIfNeeded } from '../services/vote-calculator.service.js';
 
 const router: RouterType = Router();
 
 // 所有聚会路由都需要认证
 router.use(authMiddleware);
+
+const MAX_PARTICIPANTS = 10;
+const MAX_NOMINATIONS_PER_USER = 2;
+const VOTE_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ── Zod Schemas ──
 
@@ -44,11 +62,6 @@ const createGatheringSchema = z.object({
   name: z.string().min(1).max(50),
   target_time: z.string().datetime({ message: '目标时间格式无效，需要 ISO 8601' }),
   creator_nickname: z.string().min(1).max(NICKNAME_MAX_LENGTH).optional(),
-  creator_tastes: z
-    .array(z.string())
-    .max(MAX_TASTE_COUNT)
-    .optional()
-    .default([]),
 });
 
 const joinGatheringSchema = z.object({
@@ -60,19 +73,6 @@ const joinGatheringSchema = z.object({
     })
     .optional(),
   location_name: z.string().optional(),
-  tastes: z
-    .array(z.string())
-    .max(MAX_TASTE_COUNT)
-    .optional()
-    .default([]),
-});
-
-const startVoteSchema = z.object({
-  restaurant_index: z.number().int().min(0),
-});
-
-const castVoteSchema = z.object({
-  agree: z.boolean(),
 });
 
 const updateLocationSchema = z.object({
@@ -81,15 +81,40 @@ const updateLocationSchema = z.object({
   location_name: z.string().optional(),
 });
 
-// ── 工具函数 ──
+const aiSuggestSchema = z.object({
+  tastes: z.array(z.string()).min(1).max(MAX_TASTE_COUNT),
+});
 
-/**
- * 根据邀请码查询聚会，不存在则抛 404
- */
+const nominateSchema = z.object({
+  amap_id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().optional(),
+  address: z.string().optional(),
+  location: z.object({
+    lng: z.number().min(-180).max(180),
+    lat: z.number().min(-90).max(90),
+  }),
+  rating: z.number().min(0).max(5).optional(),
+  cost: z.number().int().min(0).optional(),
+  source: z.enum(['manual', 'ai']),
+  reason: z.string().optional(),
+});
+
+const castVoteSchema = z.object({
+  nomination_id: z.string().uuid(),
+});
+
+// ── Helpers ──
+
+function normalizeParam(v: string | string[] | undefined): string {
+  if (!v) return '';
+  return Array.isArray(v) ? v[0] : v;
+}
+
 async function getGatheringByCode(codeParam: string | string[]): Promise<Gathering> {
-  const code = Array.isArray(codeParam) ? codeParam[0] : codeParam;
+  const code = normalizeParam(codeParam as any);
   if (!isValidInviteCode(code)) {
-    throw new AppError(400, ErrorCode.INVALID_INVITE_CODE);
+    throw new AppError(404, ErrorCode.NOT_FOUND, '聚会不存在');
   }
 
   const { data, error } = await supabaseAdmin
@@ -99,15 +124,12 @@ async function getGatheringByCode(codeParam: string | string[]): Promise<Gatheri
     .single();
 
   if (error || !data) {
-    throw new AppError(404, ErrorCode.GATHERING_NOT_FOUND);
+    throw new AppError(404, ErrorCode.NOT_FOUND, '聚会不存在');
   }
 
   return data as Gathering;
 }
 
-/**
- * 查询当前用户在聚会中的参与者记录
- */
 async function getMyParticipant(
   gatheringId: string,
   userId: string,
@@ -122,87 +144,59 @@ async function getMyParticipant(
   return (data as Participant) || null;
 }
 
-/**
- * 递增聚会版本号
- */
+async function requireParticipant(gathering: Gathering, userId: string): Promise<Participant> {
+  const p = await getMyParticipant(gathering.id, userId);
+  if (!p) {
+    throw new AppError(400, ErrorCode.NOT_JOINED, '你还未加入该聚会');
+  }
+  return p;
+}
+
 async function bumpVersion(gatheringId: string): Promise<void> {
   const { error } = await supabaseAdmin.rpc('increment_version', {
     gathering_id_input: gatheringId,
   });
+  if (!error) return;
 
-  if (error) {
-    // 回退：手动 +1
-    const { data } = await supabaseAdmin
+  const { data } = await supabaseAdmin
+    .from('gatherings')
+    .select('version')
+    .eq('id', gatheringId)
+    .single();
+
+  if (data) {
+    await supabaseAdmin
       .from('gatherings')
-      .select('version')
-      .eq('id', gatheringId)
-      .single();
-
-    if (data) {
-      await supabaseAdmin
-        .from('gatherings')
-        .update({ version: (data.version as number) + 1 })
-        .eq('id', gatheringId);
-    }
+      .update({ version: (data.version as number) + 1 })
+      .eq('id', gatheringId);
   }
 }
 
-/**
- * 写入消息
- */
 async function writeMessage(
   gatheringId: string,
   type: string,
-  text: string,
-  targetId?: string,
+  content: string,
+  senderId: string | null = null,
+  metadata: Record<string, unknown> | null = null,
 ): Promise<void> {
   await supabaseAdmin.from('messages').insert({
     gathering_id: gatheringId,
     type,
-    text,
-    target_id: targetId || null,
+    content,
+    sender_id: senderId,
+    metadata,
   });
 }
 
-/**
- * 判断投票是否超时
- */
 function isVoteExpired(vote: Vote): boolean {
   return new Date(vote.timeout_at).getTime() < Date.now();
 }
 
-/**
- * 结算超时投票（自动否决）
- * @returns 是否发生结算
- */
-async function settleVoteTimeout(gathering: Gathering, vote: Vote): Promise<boolean> {
-  if (!isVoteExpired(vote)) return false;
-
-  await supabaseAdmin
-    .from('votes')
-    .update({ status: VoteStatus.REJECTED })
-    .eq('id', vote.id);
-
-  await supabaseAdmin
-    .from('gatherings')
-    .update({ status: GatheringStatus.WAITING })
-    .eq('id', gathering.id);
-
-  await writeMessage(
-    gathering.id,
-    MessageType.VOTE_RESULT,
-    '投票已超时，自动否决',
-  );
-
-  await bumpVersion(gathering.id);
-  return true;
-}
-
-// ── 路由 ──
+// ── Routes ──
 
 /**
  * POST /api/gatherings
- * 创建聚会：生成邀请码，创建者自动成为第一个参与者
+ * 创建聚会：生成邀请码，创建者自动加入（is_creator=true）
  */
 router.post('/', validate(createGatheringSchema), async (req, res, next) => {
   try {
@@ -218,7 +212,6 @@ router.post('/', validate(createGatheringSchema), async (req, res, next) => {
         .select('id')
         .eq('code', candidate)
         .single();
-
       if (!existing) {
         code = candidate;
         break;
@@ -226,10 +219,9 @@ router.post('/', validate(createGatheringSchema), async (req, res, next) => {
     }
 
     if (!code) {
-      throw new AppError(500, ErrorCode.UNKNOWN, '生成邀请码失败，请重试');
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, '生成邀请码失败，请重试');
     }
 
-    // 创建聚会
     const { data: gathering, error: gErr } = await supabaseAdmin
       .from('gatherings')
       .insert({
@@ -244,10 +236,14 @@ router.post('/', validate(createGatheringSchema), async (req, res, next) => {
       .single();
 
     if (gErr || !gathering) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `创建聚会失败: ${gErr?.message}`);
+      throw new AppError(
+        500,
+        ErrorCode.INTERNAL_ERROR,
+        `创建聚会失败: ${gErr?.message || 'unknown'}`,
+      );
     }
 
-    // 获取创建者昵称（优先用传入的，否则查 profile）
+    // 创建者昵称（可选传入，否则用 profile）
     let nickname = body.creator_nickname?.trim() || '';
     if (!nickname) {
       const { data: profile } = await supabaseAdmin
@@ -258,94 +254,99 @@ router.post('/', validate(createGatheringSchema), async (req, res, next) => {
       nickname = (profile?.nickname as string) || '创建者';
     }
 
-    // 创建者作为第一个参与者
-    const { error: pErr } = await supabaseAdmin.from('participants').insert({
-      gathering_id: gathering.id,
-      user_id: userId,
-      nickname,
-      tastes: body.creator_tastes,
-      status: ParticipantStatus.JOINED,
-      reminders_sent: {},
-    });
+    const { data: participant, error: pErr } = await supabaseAdmin
+      .from('participants')
+      .insert({
+        gathering_id: (gathering as any).id,
+        user_id: userId,
+        nickname,
+        tastes: [],
+        status: ParticipantStatus.JOINED,
+        is_creator: true,
+        reminders_sent: {},
+      })
+      .select()
+      .single();
 
-    if (pErr) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `添加创建者失败: ${pErr.message}`);
+    if (pErr || !participant) {
+      throw new AppError(
+        500,
+        ErrorCode.INTERNAL_ERROR,
+        `添加创建者失败: ${pErr?.message || 'unknown'}`,
+      );
     }
 
-    // 写入系统消息
     await writeMessage(
-      gathering.id,
-      MessageType.SYSTEM,
+      (gathering as any).id as string,
+      MessageType.PARTICIPANT_JOINED,
       `${nickname} 创建了聚会「${body.name.trim()}」`,
+      userId,
+      { participant_id: (participant as any).id, is_creator: true },
     );
 
-    res.status(201).json({
-      success: true,
-      data: gathering as Gathering,
-    });
+    await bumpVersion((gathering as any).id as string);
+
+    res.status(201).json({ success: true, data: gathering as Gathering });
   } catch (err) {
     next(err);
   }
 });
 
 /**
- * GET /api/gatherings/mine
- * 查询我参与的所有聚会
+ * GET /api/gatherings/mine?status=active&limit=20&offset=0
+ * 我的聚会列表
  */
 router.get('/mine', async (req, res, next) => {
   try {
     const userId = req.user!.id;
 
-    // 查询我参与的聚会 ID
+    const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 50);
+    const offset = Math.max(parseInt(req.query.offset as string, 10) || 0, 0);
+    const status = (req.query.status as string | undefined)?.trim();
+
     const { data: myParts, error: pErr } = await supabaseAdmin
       .from('participants')
       .select('gathering_id')
       .eq('user_id', userId);
 
     if (pErr) {
-      throw new AppError(500, ErrorCode.UNKNOWN, pErr.message);
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
     }
 
-    if (!myParts || myParts.length === 0) {
-      res.json({ success: true, data: [] });
+    const gatheringIds = (myParts || []).map((p) => p.gathering_id as string);
+    if (gatheringIds.length === 0) {
+      res.json({ success: true, data: { gatherings: [], total: 0 } });
       return;
     }
 
-    const gatheringIds = myParts.map((p) => p.gathering_id);
-
-    // 查询聚会详情
-    const { data: gatherings, error: gErr } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('gatherings')
-      .select('*')
-      .in('id', gatheringIds)
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' })
+      .in('id', gatheringIds);
+
+    if (status) {
+      if (status === 'active') {
+        q = q.neq('status', GatheringStatus.COMPLETED);
+      } else {
+        q = q.eq('status', status);
+      }
+    }
+
+    const { data: gatherings, error: gErr, count } = await q
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (gErr) {
-      throw new AppError(500, ErrorCode.UNKNOWN, gErr.message);
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, gErr.message);
     }
 
-    // 统计参与者数量
-    const { data: participants, error: countErr } = await supabaseAdmin
-      .from('participants')
-      .select('gathering_id')
-      .in('gathering_id', gatheringIds);
-
-    if (countErr) {
-      throw new AppError(500, ErrorCode.UNKNOWN, countErr.message);
-    }
-
-    const countMap = new Map<string, number>();
-    for (const p of participants || []) {
-      const id = p.gathering_id as string;
-      countMap.set(id, (countMap.get(id) || 0) + 1);
-    }
-
-    const enriched = (gatherings || []).map((g) => ({
-      ...g,
-      participant_count: countMap.get(g.id as string) || 0,
-    }));
-
-    res.json({ success: true, data: enriched });
+    res.json({
+      success: true,
+      data: {
+        gatherings: gatherings || [],
+        total: count || 0,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -353,75 +354,87 @@ router.get('/mine', async (req, res, next) => {
 
 /**
  * GET /api/gatherings/:code
- * 获取聚会详情（含参与者、餐厅、活跃投票、最近消息）
+ * 获取聚会详情（含 participants/nominations/active_vote/messages）
  */
 router.get('/:code', async (req, res, next) => {
   try {
+    const userId = req.user!.id;
     const gathering = await getGatheringByCode(req.params.code);
     const supabase = req.supabase!;
 
-    // 并行查询关联数据
-    const [participantsRes, restaurantsRes, voteRes, messagesRes] =
-      await Promise.all([
-        supabase
-          .from('participants')
-          .select('*')
-          .eq('gathering_id', gathering.id),
-        supabase
-          .from('restaurants')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .order('score', { ascending: false }),
-        supabase
-          .from('votes')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .eq('status', VoteStatus.ACTIVE)
-          .order('created_at', { ascending: false })
-          .limit(1),
-        supabase
-          .from('messages')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .order('created_at', { ascending: false })
-          .limit(50),
-      ]);
+    await requireParticipant(gathering, userId);
+
+    const [participantsRes, nominationsRes, voteRes, messagesRes] = await Promise.all([
+      supabase.from('participants').select('*').eq('gathering_id', gathering.id),
+      supabase
+        .from('nominations')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('votes')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .eq('status', VoteStatus.ACTIVE)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('messages')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
 
     if (participantsRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `查询参与者失败: ${participantsRes.error.message}`);
+      throw new AppError(
+        500,
+        ErrorCode.INTERNAL_ERROR,
+        `查询参与者失败: ${participantsRes.error.message}`,
+      );
     }
-    if (restaurantsRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${restaurantsRes.error.message}`);
+    if (nominationsRes.error) {
+      throw new AppError(
+        500,
+        ErrorCode.INTERNAL_ERROR,
+        `查询提名失败: ${nominationsRes.error.message}`,
+      );
     }
     if (voteRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `查询投票失败: ${voteRes.error.message}`);
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, `查询投票失败: ${voteRes.error.message}`);
     }
     if (messagesRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `查询消息失败: ${messagesRes.error.message}`);
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, `查询消息失败: ${messagesRes.error.message}`);
     }
 
-    // 如果有活跃投票，查询投票记录
-    let voteDetail = null;
+    const nominations = (nominationsRes.data || []) as Nomination[];
+
+    let activeVote:
+      | (Vote & { vote_counts: VoteCountItem[]; total_voted: number; has_voted: boolean })
+      | null = null;
     if (voteRes.data && voteRes.data.length > 0) {
-      const activeVote = voteRes.data[0] as Vote;
-      const { data: records, error: vrErr } = await supabase
+      const vote = voteRes.data[0] as Vote;
+      const { data: records, error: rErr } = await supabase
         .from('vote_records')
         .select('*')
-        .eq('vote_id', activeVote.id);
-
-      if (vrErr) {
-        throw new AppError(500, ErrorCode.UNKNOWN, `查询投票记录失败: ${vrErr.message}`);
+        .eq('vote_id', vote.id);
+      if (rErr) {
+        throw new AppError(500, ErrorCode.INTERNAL_ERROR, `查询投票记录失败: ${rErr.message}`);
       }
-
       const voteRecords = (records || []) as VoteRecord[];
-      voteDetail = {
-        ...activeVote,
-        agree_count: voteRecords.filter((r) => r.agree).length,
-        disagree_count: voteRecords.filter((r) => !r.agree).length,
-        total_voters: voteRecords.length,
-        has_voted: req.user
-          ? voteRecords.some((r) => r.user_id === req.user!.id)
-          : false,
+      const counts = new Map<string, number>();
+      for (const r of voteRecords) {
+        counts.set(r.nomination_id, (counts.get(r.nomination_id) || 0) + 1);
+      }
+      activeVote = {
+        ...vote,
+        vote_counts: nominations.map((n) => ({
+          nomination_id: n.id,
+          name: n.name,
+          count: counts.get(n.id) || 0,
+        })),
+        total_voted: voteRecords.length,
+        has_voted: voteRecords.some((r) => r.user_id === userId),
       };
     }
 
@@ -429,10 +442,10 @@ router.get('/:code', async (req, res, next) => {
       success: true,
       data: {
         gathering,
-        participants: participantsRes.data || [],
-        restaurants: restaurantsRes.data || [],
-        active_vote: voteDetail,
-        messages: (messagesRes.data || []).reverse(), // 按时间正序
+        participants: (participantsRes.data || []) as Participant[],
+        nominations,
+        active_vote: activeVote,
+        messages: ((messagesRes.data || []) as Message[]).reverse(),
       },
     });
   } catch (err) {
@@ -442,7 +455,7 @@ router.get('/:code', async (req, res, next) => {
 
 /**
  * POST /api/gatherings/:code/join
- * 加入聚会
+ * 加入聚会（waiting 状态）
  */
 router.post('/:code/join', validate(joinGatheringSchema), async (req, res, next) => {
   try {
@@ -450,35 +463,31 @@ router.post('/:code/join', validate(joinGatheringSchema), async (req, res, next)
     const gathering = await getGatheringByCode(req.params.code);
     const body = req.body as z.infer<typeof joinGatheringSchema>;
 
-    // 检查聚会状态
-    if (
-      gathering.status === GatheringStatus.COMPLETED ||
-      gathering.status === GatheringStatus.CANCELLED
-    ) {
-      throw new AppError(400, ErrorCode.GATHERING_ENDED);
+    if (gathering.status !== GatheringStatus.WAITING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE, '当前状态不允许加入');
     }
 
-    // 检查是否已加入
     const existing = await getMyParticipant(gathering.id, userId);
     if (existing) {
       throw new AppError(400, ErrorCode.ALREADY_JOINED);
     }
 
-    // 校验昵称
+    const { data: allParticipants, error: countErr } = await supabaseAdmin
+      .from('participants')
+      .select('id')
+      .eq('gathering_id', gathering.id);
+    if (countErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, countErr.message);
+    }
+    if ((allParticipants?.length || 0) >= MAX_PARTICIPANTS) {
+      throw new AppError(400, ErrorCode.GATHERING_FULL);
+    }
+
     const nicknameResult = validateNickname(body.nickname);
     if (!nicknameResult.valid) {
       throw new AppError(400, ErrorCode.INVALID_NICKNAME, nicknameResult.message);
     }
 
-    // 校验口味
-    if (body.tastes.length > 0) {
-      const tastesResult = validateTastes(body.tastes);
-      if (!tastesResult.valid) {
-        throw new AppError(400, ErrorCode.INVALID_TASTE, tastesResult.message);
-      }
-    }
-
-    // 添加参与者
     const { data: participant, error: pErr } = await supabaseAdmin
       .from('participants')
       .insert({
@@ -487,30 +496,29 @@ router.post('/:code/join', validate(joinGatheringSchema), async (req, res, next)
         nickname: body.nickname.trim(),
         location: body.location || null,
         location_name: body.location_name || null,
-        tastes: body.tastes,
+        tastes: [],
         status: ParticipantStatus.JOINED,
+        is_creator: false,
         reminders_sent: {},
       })
       .select()
       .single();
 
-    if (pErr) {
-      // 处理并发加入导致的唯一约束冲突
-      if (pErr.code === '23505') {
+    if (pErr || !participant) {
+      if (pErr?.code === '23505') {
         throw new AppError(400, ErrorCode.ALREADY_JOINED);
       }
-      throw new AppError(500, ErrorCode.UNKNOWN, `加入聚会失败: ${pErr.message}`);
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, `加入失败: ${pErr?.message || 'unknown'}`);
     }
 
-    // 写入加入消息
     await writeMessage(
       gathering.id,
-      MessageType.JOIN,
+      MessageType.PARTICIPANT_JOINED,
       `${body.nickname.trim()} 加入了聚会`,
-      participant.id,
+      userId,
+      { participant_id: (participant as any).id },
     );
 
-    // 递增版本号
     await bumpVersion(gathering.id);
 
     res.status(201).json({ success: true, data: participant as Participant });
@@ -529,13 +537,8 @@ router.patch('/:code/location', validate(updateLocationSchema), async (req, res,
     const gathering = await getGatheringByCode(req.params.code);
     const body = req.body as z.infer<typeof updateLocationSchema>;
 
-    // 检查是否为参与者
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED, '你还未加入该聚会');
-    }
+    const myParticipant = await requireParticipant(gathering, userId);
 
-    // 更新位置
     const { data: updated, error: uErr } = await supabaseAdmin
       .from('participants')
       .update({
@@ -547,12 +550,14 @@ router.patch('/:code/location', validate(updateLocationSchema), async (req, res,
       .single();
 
     if (uErr || !updated) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `更新位置失败: ${uErr?.message}`);
+      throw new AppError(
+        500,
+        ErrorCode.INTERNAL_ERROR,
+        `更新位置失败: ${uErr?.message || 'unknown'}`,
+      );
     }
 
-    // 递增版本号
     await bumpVersion(gathering.id);
-
     res.json({ success: true, data: updated as Participant });
   } catch (err) {
     next(err);
@@ -560,457 +565,105 @@ router.patch('/:code/location', validate(updateLocationSchema), async (req, res,
 });
 
 /**
- * POST /api/gatherings/:code/recommend
- * 触发餐厅推荐
+ * POST /api/gatherings/:code/start-nominating
+ * 开始提名阶段（发起人）
  */
-router.post('/:code/recommend', async (req, res, next) => {
+router.post('/:code/start-nominating', async (req, res, next) => {
   try {
+    const userId = req.user!.id;
     const gathering = await getGatheringByCode(req.params.code);
 
-    // 状态检查：只有 waiting 状态可以推荐
+    if (gathering.creator_id !== userId) {
+      throw new AppError(403, ErrorCode.FORBIDDEN);
+    }
     if (gathering.status !== GatheringStatus.WAITING) {
-      throw new AppError(400, ErrorCode.GATHERING_ENDED, '当前状态不允许推荐餐厅');
+      throw new AppError(400, ErrorCode.INVALID_STATE);
     }
 
-    // 查询参与者
-    const { data: participants } = await supabaseAdmin
+    const { data: participants, error: pErr } = await supabaseAdmin
       .from('participants')
-      .select('*')
+      .select('id')
       .eq('gathering_id', gathering.id);
-
-    if (!participants || participants.length === 0) {
-      throw new AppError(400, ErrorCode.NOT_JOINED, '聚会中没有参与者');
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
+    }
+    if ((participants?.length || 0) < 2) {
+      throw new AppError(400, ErrorCode.TOO_FEW_PARTICIPANTS);
     }
 
-    const withLocation = (participants as Participant[]).filter((p) => p.location);
-    if (withLocation.length === 0) {
-      throw new AppError(
-        400,
-        ErrorCode.INVALID_LOCATION,
-        '至少需要一个参与者提供位置信息',
-      );
-    }
-
-    // 更新状态为推荐中
-    await supabaseAdmin
+    const { error: uErr } = await supabaseAdmin
       .from('gatherings')
-      .update({ status: GatheringStatus.RECOMMENDING })
+      .update({ status: GatheringStatus.NOMINATING })
       .eq('id', gathering.id);
-
-    let rollbackStatus = true;
-    try {
-      // 调用推荐服务
-      let candidates = await recommend(participants as Participant[]);
-
-      // 极端兜底：若无候选（理论上不应发生），用中心点生成简易 Mock，避免空列表
-      if (!candidates || candidates.length === 0) {
-        const valid = (participants as Participant[]).filter((p) => p.location);
-        if (valid.length > 0) {
-          const centerLng = valid.reduce((s, p) => s + (p.location!.lng || 0), 0) / valid.length;
-          const centerLat = valid.reduce((s, p) => s + (p.location!.lat || 0), 0) / valid.length;
-          candidates = Array.from({ length: 3 }).map((_, i) => ({
-            amap_id: `fallback_${i}`,
-            name: `附近餐厅 ${i + 1}`,
-            type: '餐饮',
-            address: '',
-            location: { lng: Number((centerLng + (Math.random() - 0.5) * 0.01).toFixed(6)), lat: Number((centerLat + (Math.random() - 0.5) * 0.01).toFixed(6)) },
-            rating: 4.0,
-            cost: 60,
-            score: 70 - i * 5,
-            travel_infos: valid.filter(v => v.location).map(v => ({ participant_id: v.id, distance: 1000 + i * 200, duration: 900 + i * 120 })),
-          }));
-        }
-      }
-
-      // 清除旧推荐
-      await supabaseAdmin
-        .from('restaurants')
-        .delete()
-        .eq('gathering_id', gathering.id);
-
-      // 写入新推荐
-      let insertedRestaurants: Restaurant[] = [];
-      if (candidates.length > 0) {
-        const rows = candidates.map((c) => ({
-          gathering_id: gathering.id,
-          amap_id: c.amap_id,
-          name: c.name,
-          type: c.type,
-          address: c.address,
-          location: c.location,
-          rating: c.rating,
-          cost: c.cost,
-          score: c.score,
-          travel_infos: c.travel_infos,
-          is_confirmed: false,
-        }));
-
-        const { data: inserted, error: iErr } = await supabaseAdmin
-          .from('restaurants')
-          .insert(rows)
-          .select();
-
-        if (iErr) {
-          throw new AppError(500, ErrorCode.UNKNOWN, `写入推荐餐厅失败: ${iErr.message}`);
-        }
-
-        insertedRestaurants = (inserted || []) as Restaurant[];
-        insertedRestaurants.sort((a, b) => (b.score || 0) - (a.score || 0));
-      }
-
-      // 恢复状态为 waiting
-      await supabaseAdmin
-        .from('gatherings')
-        .update({ status: GatheringStatus.WAITING })
-        .eq('id', gathering.id);
-
-      await bumpVersion(gathering.id);
-      rollbackStatus = false;
-
-      // 写入系统消息
-      await writeMessage(
-        gathering.id,
-        MessageType.SYSTEM,
-        `已推荐 ${candidates.length} 家餐厅，快来投票选择吧！`,
-      );
-
-      res.json({ success: true, data: insertedRestaurants });
-    } catch (err) {
-      if (err instanceof AppError) {
-        throw err;
-      }
-      const message = err instanceof Error ? err.message : '推荐失败';
-      throw new AppError(500, ErrorCode.UNKNOWN, message);
-    } finally {
-      if (rollbackStatus) {
-        try {
-          await supabaseAdmin
-            .from('gatherings')
-            .update({ status: GatheringStatus.WAITING })
-            .eq('id', gathering.id);
-          await bumpVersion(gathering.id);
-        } catch (rollbackErr) {
-          console.error('[Gathering] 推荐失败回滚状态异常:', rollbackErr);
-        }
-      }
+    if (uErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, uErr.message);
     }
+
+    await writeMessage(gathering.id, MessageType.NOMINATING_STARTED, '提名阶段开始');
+    await bumpVersion(gathering.id);
+
+    res.json({ success: true, data: { status: GatheringStatus.NOMINATING } });
   } catch (err) {
     next(err);
   }
 });
 
 /**
- * POST /api/gatherings/:code/vote
- * 发起投票
+ * GET /api/gatherings/:code/search-restaurants?keyword=xxx&page=1
+ * POI 搜索（参与者）
  */
-router.post('/:code/vote', validate(startVoteSchema), async (req, res, next) => {
+router.get('/:code/search-restaurants', async (req, res, next) => {
   try {
     const userId = req.user!.id;
-    const supabase = req.supabase!;
     const gathering = await getGatheringByCode(req.params.code);
-    const { restaurant_index } = req.body as z.infer<typeof startVoteSchema>;
 
-    // 检查是否为参与者
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED);
+    await requireParticipant(gathering, userId);
+
+    const keyword = String(req.query.keyword || '').trim();
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    if (!keyword) {
+      throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'keyword 不能为空');
     }
 
-    // 检查是否有进行中的投票
-    const { data: activeVotes } = await supabaseAdmin
-      .from('votes')
-      .select('id')
-      .eq('gathering_id', gathering.id)
-      .eq('status', VoteStatus.ACTIVE);
-
-    if (activeVotes && activeVotes.length > 0) {
-      const activeVoteId = activeVotes[0]?.id as string | undefined;
-      if (activeVoteId) {
-        const { data: activeVote } = await supabaseAdmin
-          .from('votes')
-          .select('*')
-          .eq('id', activeVoteId)
-          .single();
-
-        if (activeVote && (await settleVoteTimeout(gathering, activeVote as Vote))) {
-          // 已结算超时投票，允许继续发起
-        } else {
-          throw new AppError(400, ErrorCode.VOTE_IN_PROGRESS);
-        }
-      } else {
-        throw new AppError(400, ErrorCode.VOTE_IN_PROGRESS);
-      }
-    }
-
-    // 检查餐厅是否存在
-    const { data: restaurants, error: rErr } = await supabase
-      .from('restaurants')
-      .select('*')
-      .eq('gathering_id', gathering.id)
-      .order('score', { ascending: false });
-
-    if (rErr) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${rErr.message}`);
-    }
-
-    if (!restaurants || restaurant_index >= restaurants.length) {
-      throw new AppError(400, ErrorCode.RESTAURANT_NOT_FOUND, '餐厅索引无效');
-    }
-
-    // 查询参与者数量
-    const { data: allParticipants } = await supabaseAdmin
+    const { data: participants, error: pErr } = await supabaseAdmin
       .from('participants')
-      .select('id')
+      .select('location')
       .eq('gathering_id', gathering.id);
-
-    const participantCount = allParticipants?.length || 1;
-
-    // 创建投票（5 分钟超时）
-    const timeoutAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    // votes.proposer_id 的外键在不同环境可能指向 auth.users(id) 或 participants(id)。
-    // 不依赖错误码/文案，直接依次尝试两种 proposer_id。
-    const proposerCandidates = Array.from(new Set([userId, myParticipant.id]));
-
-    let vote: Vote | null = null;
-    let lastErr: any = null;
-
-    for (const proposerId of proposerCandidates) {
-      const { data, error } = await supabaseAdmin
-        .from('votes')
-        .insert({
-          gathering_id: gathering.id,
-          restaurant_index,
-          proposer_id: proposerId,
-          status: VoteStatus.ACTIVE,
-          timeout_at: timeoutAt,
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        vote = data as Vote;
-        lastErr = null;
-        break;
-      }
-
-      lastErr = error;
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
     }
 
-    if (!vote) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `创建投票失败: ${lastErr?.message || 'unknown error'}`);
-    }
+    const locations = (participants || [])
+      .map((p) => (p as any).location)
+      .filter((loc) => isValidLocation(loc));
+    const center = locations.length > 0 ? calculateCenter(locations) : getDefaultCenter();
 
-    // 更新聚会状态为投票中
-    await supabaseAdmin
-      .from('gatherings')
-      .update({ status: GatheringStatus.VOTING })
-      .eq('id', gathering.id);
+    const { pois, total } = await searchPOIPage(
+      `${center.lng},${center.lat}`,
+      keyword,
+      3000,
+      page,
+      20,
+    );
 
-    // 如果只有 1 个参与者，自动确认
-    if (participantCount === 1) {
-      // 自动投赞成票
-      await supabaseAdmin.from('vote_records').insert({
-        vote_id: vote.id,
-        user_id: userId,
-        agree: true,
-      });
-
-      // 确认投票通过
-      await supabaseAdmin
-        .from('votes')
-        .update({ status: VoteStatus.PASSED })
-        .eq('id', vote.id);
-
-      // 确认餐厅
-      const confirmedRestaurant = restaurants[restaurant_index];
-      await supabaseAdmin
-        .from('restaurants')
-        .update({ is_confirmed: true })
-        .eq('id', confirmedRestaurant.id);
-
-      // 更新聚会状态
-      await supabaseAdmin
-        .from('gatherings')
-        .update({ status: GatheringStatus.CONFIRMED })
-        .eq('id', gathering.id);
-
-      // 计算出发时间
-      await calculateDepartureTimes(gathering.code);
-
-      await writeMessage(
-        gathering.id,
-        MessageType.RESTAURANT_CONFIRMED,
-        `已确认餐厅：${confirmedRestaurant.name}`,
-      );
-    } else {
-      const selectedRestaurant = restaurants[restaurant_index];
-      await writeMessage(
-        gathering.id,
-        MessageType.VOTE,
-        `${myParticipant.nickname} 发起了投票：${selectedRestaurant.name}，5分钟内投票`,
-        vote.id,
-      );
-    }
-
-    await bumpVersion(gathering.id);
-
-    res.status(201).json({ success: true, data: vote as Vote });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /api/gatherings/:code/vote/:voteId
- * 投票（赞成/反对）
- */
-router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, next) => {
-  try {
-    const userId = req.user!.id;
-    const supabase = req.supabase!;
-    const gathering = await getGatheringByCode(req.params.code);
-    const voteId = Array.isArray(req.params.voteId) ? req.params.voteId[0] : req.params.voteId;
-    const { agree } = req.body as z.infer<typeof castVoteSchema>;
-
-    // 检查是否为参与者
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED);
-    }
-
-    // 查询投票
-    const { data: vote, error: vErr } = await supabaseAdmin
-      .from('votes')
-      .select('*')
-      .eq('id', voteId)
-      .eq('gathering_id', gathering.id)
-      .single();
-
-    if (vErr || !vote) {
-      throw new AppError(404, ErrorCode.VOTE_NOT_FOUND);
-    }
-
-    const voteData = vote as Vote;
-
-    // 检查投票状态
-    if (voteData.status !== VoteStatus.ACTIVE) {
-      throw new AppError(400, ErrorCode.VOTE_ENDED);
-    }
-
-    // 检查是否超时（轮询触发结算）
-    if (await settleVoteTimeout(gathering, voteData)) {
-      throw new AppError(400, ErrorCode.VOTE_ENDED, '投票已超时');
-    }
-
-    // 检查是否已投票
-    const { data: existingRecord } = await supabaseAdmin
-      .from('vote_records')
-      .select('id')
-      .eq('vote_id', voteId)
-      .eq('user_id', userId)
-      .single();
-
-    if (existingRecord) {
-      throw new AppError(400, ErrorCode.ALREADY_VOTED);
-    }
-
-    // 记录投票
-    await supabaseAdmin.from('vote_records').insert({
-      vote_id: voteId,
-      user_id: userId,
-      agree,
-    });
-
-    // 查询所有投票记录
-    const { data: allRecords } = await supabaseAdmin
-      .from('vote_records')
-      .select('*')
-      .eq('vote_id', voteId);
-
-    const records = (allRecords || []) as VoteRecord[];
-    const agreeCount = records.filter((r) => r.agree).length;
-    const disagreeCount = records.filter((r) => !r.agree).length;
-
-    // 查询参与者总数
-    const { data: allParticipants } = await supabaseAdmin
-      .from('participants')
-      .select('id')
-      .eq('gathering_id', gathering.id);
-
-    const totalParticipants = allParticipants?.length || 1;
-    const majority = Math.floor(totalParticipants / 2) + 1;
-
-    // 判断投票结果
-    if (agreeCount >= majority) {
-      // 投票通过 → 确认餐厅
-      await supabaseAdmin
-        .from('votes')
-        .update({ status: VoteStatus.PASSED })
-        .eq('id', voteId);
-
-      // 查询餐厅列表并确认
-      const { data: restaurants, error: rErr } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('gathering_id', gathering.id)
-        .order('score', { ascending: false });
-
-      if (rErr) {
-        throw new AppError(500, ErrorCode.UNKNOWN, `查询餐厅失败: ${rErr.message}`);
-      }
-
-      if (restaurants && voteData.restaurant_index < restaurants.length) {
-        const confirmed = restaurants[voteData.restaurant_index] as Restaurant;
-
-        await supabaseAdmin
-          .from('restaurants')
-          .update({ is_confirmed: true })
-          .eq('id', confirmed.id);
-
-        // 更新聚会状态为已确认
-        await supabaseAdmin
-          .from('gatherings')
-          .update({ status: GatheringStatus.CONFIRMED })
-          .eq('id', gathering.id);
-
-        // 计算出发时间
-        await calculateDepartureTimes(gathering.code);
-
-        await writeMessage(
-          gathering.id,
-          MessageType.RESTAURANT_CONFIRMED,
-          `投票通过！已确认餐厅：${confirmed.name}`,
-        );
-      }
-    } else if (disagreeCount >= majority) {
-      // 投票否决
-      await supabaseAdmin
-        .from('votes')
-        .update({ status: VoteStatus.REJECTED })
-        .eq('id', voteId);
-
-      await supabaseAdmin
-        .from('gatherings')
-        .update({ status: GatheringStatus.WAITING })
-        .eq('id', gathering.id);
-
-      await writeMessage(
-        gathering.id,
-        MessageType.VOTE_RESULT,
-        '投票未通过，请重新选择餐厅',
-      );
-    }
-
-    await bumpVersion(gathering.id);
+    const restaurants: SearchRestaurantResult[] = pois.map((poi) => ({
+      amap_id: poi.id,
+      name: poi.name,
+      type: poi.type,
+      address: poi.address,
+      location: poi.location,
+      rating: poi.rating,
+      cost: poi.cost,
+      distance_to_center: calculateDistance(center, poi.location),
+      photo_url: null,
+    }));
 
     res.json({
       success: true,
       data: {
-        agree_count: agreeCount,
-        disagree_count: disagreeCount,
-        total_voters: records.length,
-        total_participants: totalParticipants,
+        restaurants,
+        total,
+        page,
       },
     });
   } catch (err) {
@@ -1018,84 +671,470 @@ router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, ne
   }
 });
 
+/**
+ * POST /api/gatherings/:code/ai-suggest
+ * AI 推荐（规则算法 P0）
+ */
+router.post('/:code/ai-suggest', validate(aiSuggestSchema), async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+    const body = req.body as z.infer<typeof aiSuggestSchema>;
+
+    if (gathering.status !== GatheringStatus.NOMINATING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE);
+    }
+
+    const myParticipant = await requireParticipant(gathering, userId);
+    if (!isValidLocation(myParticipant.location)) {
+      throw new AppError(400, ErrorCode.VALIDATION_ERROR, '需要先上传位置信息');
+    }
+
+    const tastesResult = validateTastes(body.tastes);
+    if (!tastesResult.valid) {
+      throw new AppError(400, ErrorCode.VALIDATION_ERROR, tastesResult.message);
+    }
+
+    const { data: participants, error: pErr } = await supabaseAdmin
+      .from('participants')
+      .select('*')
+      .eq('gathering_id', gathering.id);
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
+    }
+
+    const suggestions: AiSuggestion[] = await buildAiSuggestions(
+      participants as Participant[],
+      body.tastes,
+    );
+
+    res.json({ success: true, data: { suggestions } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/gatherings/:code/nominate
+ * 提名餐厅（每人最多 2 个）
+ */
+router.post('/:code/nominate', validate(nominateSchema), async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+    const body = req.body as z.infer<typeof nominateSchema>;
+
+    if (gathering.status !== GatheringStatus.NOMINATING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE);
+    }
+
+    const myParticipant = await requireParticipant(gathering, userId);
+
+    const { data: myNoms, error: myErr } = await supabaseAdmin
+      .from('nominations')
+      .select('id, amap_id')
+      .eq('gathering_id', gathering.id)
+      .eq('nominated_by', myParticipant.id);
+    if (myErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, myErr.message);
+    }
+    if ((myNoms?.length || 0) >= MAX_NOMINATIONS_PER_USER) {
+      throw new AppError(400, ErrorCode.NOMINATION_LIMIT);
+    }
+    if (myNoms?.some((n) => n.amap_id === body.amap_id)) {
+      throw new AppError(400, ErrorCode.DUPLICATE_NOMINATION);
+    }
+
+    const { data: participants, error: pErr } = await supabaseAdmin
+      .from('participants')
+      .select('*')
+      .eq('gathering_id', gathering.id);
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
+    }
+
+    const travelInfos = await calculateTravelInfos(
+      participants as Participant[],
+      body.location,
+    );
+
+    const score = computeNominationScore({
+      travel_infos: travelInfos,
+      rating: body.rating ?? null,
+      cost: body.cost ?? null,
+    });
+
+    const { data: nomination, error: nErr } = await supabaseAdmin
+      .from('nominations')
+      .insert({
+        gathering_id: gathering.id,
+        nominated_by: myParticipant.id,
+        amap_id: body.amap_id,
+        name: body.name,
+        type: body.type || null,
+        address: body.address || null,
+        location: body.location,
+        rating: body.rating ?? null,
+        cost: body.cost ?? null,
+        source: body.source,
+        reason: body.source === 'ai' ? (body.reason || null) : null,
+        score,
+        travel_infos: travelInfos,
+        is_confirmed: false,
+      })
+      .select()
+      .single();
+
+    if (nErr || !nomination) {
+      if (nErr?.code === '23505') {
+        throw new AppError(400, ErrorCode.DUPLICATE_NOMINATION);
+      }
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, `提名失败: ${nErr?.message || 'unknown'}`);
+    }
+
+    await writeMessage(
+      gathering.id,
+      MessageType.RESTAURANT_NOMINATED,
+      `${myParticipant.nickname} 提名了「${body.name}」`,
+      userId,
+      { nomination_id: (nomination as any).id, nominated_by: myParticipant.id },
+    );
+
+    await bumpVersion(gathering.id);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...(nomination as Nomination),
+        nominator_nickname: myParticipant.nickname,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/gatherings/:code/nominate/:id
+ * 撤回提名（仅提名人）
+ */
+router.delete('/:code/nominate/:id', async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+    const nominationId = normalizeParam(req.params.id);
+
+    if (gathering.status !== GatheringStatus.NOMINATING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE);
+    }
+
+    const myParticipant = await requireParticipant(gathering, userId);
+
+    const { data: nomination, error: nErr } = await supabaseAdmin
+      .from('nominations')
+      .select('*')
+      .eq('id', nominationId)
+      .eq('gathering_id', gathering.id)
+      .single();
+    if (nErr || !nomination) {
+      throw new AppError(404, ErrorCode.NOT_FOUND);
+    }
+
+    const nom = nomination as Nomination;
+    if (nom.nominated_by !== myParticipant.id) {
+      throw new AppError(403, ErrorCode.FORBIDDEN);
+    }
+
+    const { error: dErr } = await supabaseAdmin
+      .from('nominations')
+      .delete()
+      .eq('id', nominationId);
+    if (dErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, dErr.message);
+    }
+
+    await writeMessage(
+      gathering.id,
+      MessageType.NOMINATION_WITHDRAWN,
+      `${myParticipant.nickname} 撤回了提名「${nom.name}」`,
+      userId,
+      { nomination_id: nominationId },
+    );
+
+    await bumpVersion(gathering.id);
+    res.json({ success: true, data: { deleted: true } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/gatherings/:code/start-voting
+ * 开始投票（发起人）
+ */
+router.post('/:code/start-voting', async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+
+    if (gathering.creator_id !== userId) {
+      throw new AppError(403, ErrorCode.FORBIDDEN);
+    }
+    if (gathering.status !== GatheringStatus.NOMINATING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE);
+    }
+
+    const { data: nominations, error: nErr } = await supabaseAdmin
+      .from('nominations')
+      .select('id')
+      .eq('gathering_id', gathering.id);
+    if (nErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, nErr.message);
+    }
+    if ((nominations?.length || 0) < 2) {
+      throw new AppError(400, ErrorCode.TOO_FEW_NOMINATIONS);
+    }
+
+    const { data: participants, error: pErr } = await supabaseAdmin
+      .from('participants')
+      .select('id')
+      .eq('gathering_id', gathering.id);
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
+    }
+
+    // 检查是否已有进行中的投票
+    const { data: activeVotes } = await supabaseAdmin
+      .from('votes')
+      .select('id, timeout_at')
+      .eq('gathering_id', gathering.id)
+      .eq('status', VoteStatus.ACTIVE)
+      .limit(1);
+    if (activeVotes && activeVotes.length > 0) {
+      const active = activeVotes[0] as any as Vote;
+      if (!isVoteExpired(active)) {
+        throw new AppError(400, ErrorCode.INVALID_STATE, '已有进行中的投票');
+      }
+    }
+
+    const timeoutAt = new Date(Date.now() + VOTE_TIMEOUT_MS).toISOString();
+    const { data: vote, error: vErr } = await supabaseAdmin
+      .from('votes')
+      .insert({
+        gathering_id: gathering.id,
+        status: VoteStatus.ACTIVE,
+        timeout_at: timeoutAt,
+        total_participants: participants?.length || 1,
+        result: null,
+        resolved_at: null,
+      })
+      .select()
+      .single();
+    if (vErr || !vote) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, `创建投票失败: ${vErr?.message || 'unknown'}`);
+    }
+
+    const { error: uErr } = await supabaseAdmin
+      .from('gatherings')
+      .update({ status: GatheringStatus.VOTING })
+      .eq('id', gathering.id);
+    if (uErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, uErr.message);
+    }
+
+    await writeMessage(gathering.id, MessageType.VOTE_STARTED, '投票开始', null, {
+      vote_id: (vote as any).id,
+      timeout_at: timeoutAt,
+    });
+
+    await bumpVersion(gathering.id);
+
+    res.json({
+      success: true,
+      data: {
+        vote: {
+          ...(vote as Vote),
+          nominations: (nominations || []).map((n) => n.id as string),
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/gatherings/:code/vote/:voteId
+ * 投票（选择制）
+ */
+router.post('/:code/vote/:voteId', validate(castVoteSchema), async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const gathering = await getGatheringByCode(req.params.code);
+    const voteId = normalizeParam(req.params.voteId);
+    const { nomination_id } = req.body as z.infer<typeof castVoteSchema>;
+
+    await requireParticipant(gathering, userId);
+
+    if (gathering.status !== GatheringStatus.VOTING) {
+      throw new AppError(400, ErrorCode.INVALID_STATE);
+    }
+
+    const { data: vote, error: vErr } = await supabaseAdmin
+      .from('votes')
+      .select('*')
+      .eq('id', voteId)
+      .eq('gathering_id', gathering.id)
+      .single();
+    if (vErr || !vote) {
+      throw new AppError(404, ErrorCode.NOT_FOUND);
+    }
+
+    const voteData = vote as Vote;
+    if (voteData.status !== VoteStatus.ACTIVE) {
+      throw new AppError(400, ErrorCode.VOTE_ENDED);
+    }
+    if (isVoteExpired(voteData)) {
+      await settleActiveVoteIfNeeded(gathering.id, voteData.id);
+      throw new AppError(400, ErrorCode.VOTE_ENDED);
+    }
+
+    const { data: nomination, error: nErr } = await supabaseAdmin
+      .from('nominations')
+      .select('id')
+      .eq('id', nomination_id)
+      .eq('gathering_id', gathering.id)
+      .single();
+    if (nErr || !nomination) {
+      throw new AppError(400, ErrorCode.INVALID_NOMINATION);
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('vote_records')
+      .select('id')
+      .eq('vote_id', voteId)
+      .eq('user_id', userId)
+      .single();
+    if (existing) {
+      throw new AppError(400, ErrorCode.ALREADY_VOTED);
+    }
+
+    const { error: iErr } = await supabaseAdmin.from('vote_records').insert({
+      vote_id: voteId,
+      user_id: userId,
+      nomination_id,
+    });
+    if (iErr) {
+      if (iErr.code === '23505') {
+        throw new AppError(400, ErrorCode.ALREADY_VOTED);
+      }
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, iErr.message);
+    }
+
+    const { data: records, error: rErr } = await supabaseAdmin
+      .from('vote_records')
+      .select('*')
+      .eq('vote_id', voteId);
+    if (rErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, rErr.message);
+    }
+    const voteRecords = (records || []) as VoteRecord[];
+
+    const { data: nominations, error: nomsErr } = await supabaseAdmin
+      .from('nominations')
+      .select('*')
+      .eq('gathering_id', gathering.id);
+    if (nomsErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, nomsErr.message);
+    }
+    const allNoms = (nominations || []) as Nomination[];
+
+    const counts = new Map<string, number>();
+    for (const r of voteRecords) {
+      counts.set(r.nomination_id, (counts.get(r.nomination_id) || 0) + 1);
+    }
+    const voteCounts: VoteCountItem[] = allNoms.map((n) => ({
+      nomination_id: n.id,
+      name: n.name,
+      count: counts.get(n.id) || 0,
+    }));
+
+    let result: VoteWinnerResult | null = null;
+    if (voteRecords.length >= voteData.total_participants) {
+      const settled = await settleActiveVoteIfNeeded(gathering.id, voteData.id);
+      if (settled?.winner) {
+        result = {
+          winner_nomination_id: settled.winner.id,
+          winner_name: settled.winner.name,
+        };
+      }
+    }
+
+    await bumpVersion(gathering.id);
+
+    res.json({
+      success: true,
+      data: {
+        vote_counts: voteCounts,
+        total_voted: voteRecords.length,
+        total_participants: voteData.total_participants,
+        result,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * POST /api/gatherings/:code/depart
- * 标记出发
+ * 标记出发（confirmed/departing）
  */
 router.post('/:code/depart', async (req, res, next) => {
   try {
     const userId = req.user!.id;
     const gathering = await getGatheringByCode(req.params.code);
 
-    // ���态检查
     if (
       gathering.status !== GatheringStatus.CONFIRMED &&
-      gathering.status !== GatheringStatus.ACTIVE
+      gathering.status !== GatheringStatus.DEPARTING
     ) {
-      throw new AppError(400, ErrorCode.GATHERING_ENDED, '当前状态不允许标记出发');
+      throw new AppError(400, ErrorCode.INVALID_STATE);
     }
 
-    // 查询参与者
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED);
-    }
-
+    const myParticipant = await requireParticipant(gathering, userId);
     if (myParticipant.status !== ParticipantStatus.JOINED) {
-      throw new AppError(400, ErrorCode.UNKNOWN, '当前状态不允许标记出发');
+      throw new AppError(400, ErrorCode.INVALID_STATE, '当前状态不允许标记出发');
     }
 
-    // 更新参与者状态
     const now = new Date().toISOString();
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from('participants')
-      .update({
-        status: ParticipantStatus.DEPARTED,
-        departed_at: now,
-      })
+      .update({ status: ParticipantStatus.DEPARTED, departed_at: now })
       .eq('id', myParticipant.id)
       .select()
       .single();
-
-    if (error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, error.message);
+    if (uErr || !updated) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, uErr?.message || '更新失败');
     }
 
-    // 写入出发消息
-    await writeMessage(
-      gathering.id,
-      MessageType.DEPART,
-      `${myParticipant.nickname} 已出发！`,
-      myParticipant.id,
-    );
-
-    // 检查是否为第一个出发的 → 更新聚会状态为 active
+    // 第一个人出发：confirmed -> departing
     if (gathering.status === GatheringStatus.CONFIRMED) {
       await supabaseAdmin
         .from('gatherings')
-        .update({ status: GatheringStatus.ACTIVE })
+        .update({ status: GatheringStatus.DEPARTING })
         .eq('id', gathering.id);
     }
 
-    // 检查是否全员出发
-    const { data: allParticipants } = await supabaseAdmin
-      .from('participants')
-      .select('status')
-      .eq('gathering_id', gathering.id);
-
-    const allDeparted = allParticipants?.every(
-      (p) =>
-        p.status === ParticipantStatus.DEPARTED ||
-        p.status === ParticipantStatus.ARRIVED,
+    await writeMessage(
+      gathering.id,
+      MessageType.DEPARTED,
+      `${myParticipant.nickname} 已出发`,
+      userId,
+      { participant_id: myParticipant.id },
     );
 
-    if (allDeparted) {
-      await sendInstantNotice(gathering.id, 'allDeparted', myParticipant);
-    }
-
     await bumpVersion(gathering.id);
-
     res.json({ success: true, data: updated as Participant });
   } catch (err) {
     next(err);
@@ -1104,174 +1143,154 @@ router.post('/:code/depart', async (req, res, next) => {
 
 /**
  * POST /api/gatherings/:code/arrive
- * 标记到达
+ * 标记到达（confirmed/departing）
  */
 router.post('/:code/arrive', async (req, res, next) => {
   try {
     const userId = req.user!.id;
     const gathering = await getGatheringByCode(req.params.code);
 
-    // 状态检查
     if (
-      gathering.status !== GatheringStatus.ACTIVE &&
-      gathering.status !== GatheringStatus.CONFIRMED
+      gathering.status !== GatheringStatus.CONFIRMED &&
+      gathering.status !== GatheringStatus.DEPARTING
     ) {
-      throw new AppError(400, ErrorCode.GATHERING_ENDED, '当前状态不允许标记到达');
+      throw new AppError(400, ErrorCode.INVALID_STATE);
     }
 
-    const myParticipant = await getMyParticipant(gathering.id, userId);
-    if (!myParticipant) {
-      throw new AppError(403, ErrorCode.NOT_JOINED);
-    }
-
+    const myParticipant = await requireParticipant(gathering, userId);
     if (myParticipant.status !== ParticipantStatus.DEPARTED) {
-      throw new AppError(400, ErrorCode.UNKNOWN, '请先标记出发');
+      throw new AppError(400, ErrorCode.INVALID_STATE, '请先标记出发');
     }
 
-    // 更新参与者状态
     const now = new Date().toISOString();
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from('participants')
-      .update({
-        status: ParticipantStatus.ARRIVED,
-        arrived_at: now,
-      })
+      .update({ status: ParticipantStatus.ARRIVED, arrived_at: now })
       .eq('id', myParticipant.id)
       .select()
       .single();
-
-    if (error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, error.message);
+    if (uErr || !updated) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, uErr?.message || '更新失败');
     }
 
-    // 写入到达消息
     await writeMessage(
       gathering.id,
-      MessageType.ARRIVE,
-      `${myParticipant.nickname} 已到达！`,
-      myParticipant.id,
+      MessageType.ARRIVED,
+      `${myParticipant.nickname} 已到达`,
+      userId,
+      { participant_id: myParticipant.id },
     );
 
-    // 检查是否全员到达
-    const { data: allParticipants } = await supabaseAdmin
+    const { data: allParticipants, error: pErr } = await supabaseAdmin
       .from('participants')
       .select('status')
       .eq('gathering_id', gathering.id);
+    if (pErr) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, pErr.message);
+    }
 
-    const allArrived = allParticipants?.every(
-      (p) => p.status === ParticipantStatus.ARRIVED,
+    const allArrived = (allParticipants || []).every(
+      (p) => (p as any).status === ParticipantStatus.ARRIVED,
     );
 
     if (allArrived) {
-      // 全员到达 → 聚会完成
       await supabaseAdmin
         .from('gatherings')
         .update({ status: GatheringStatus.COMPLETED })
         .eq('id', gathering.id);
 
-      await sendInstantNotice(gathering.id, 'allArrived', myParticipant);
+      await writeMessage(gathering.id, MessageType.ALL_ARRIVED, '全员到达');
     }
 
     await bumpVersion(gathering.id);
-
-    res.json({ success: true, data: updated as Participant });
+    res.json({ success: true, data: { participant: updated as Participant, allArrived } });
   } catch (err) {
     next(err);
   }
 });
 
 /**
- * GET /api/gatherings/:code/poll
- * 轮询更新（客户端定期调用）
- * 如果 gathering.version > 客户端版本号，返回完整状态
+ * GET /api/gatherings/:code/poll?version=N
+ * 轮询更新：版本未变则 changed=false；变更则返回完整状态
  */
 router.get('/:code/poll', async (req, res, next) => {
   try {
+    const userId = req.user!.id;
     const clientVersion = parseInt(req.query.version as string, 10) || 0;
-    let gathering = await getGatheringByCode(req.params.code);
-    const supabase = req.supabase!;
 
-    // 先检查是否有超时投票需要结算
+    let gathering = await getGatheringByCode(req.params.code);
+    await requireParticipant(gathering, userId);
+
+    // 超时投票结算（poll 触发）
     const { data: activeVotes } = await supabaseAdmin
       .from('votes')
-      .select('*')
+      .select('id')
       .eq('gathering_id', gathering.id)
       .eq('status', VoteStatus.ACTIVE)
       .order('created_at', { ascending: false })
       .limit(1);
 
-    let activeVote = (activeVotes && activeVotes.length > 0)
-      ? (activeVotes[0] as Vote)
-      : null;
-
-    if (activeVote) {
-      const settled = await settleVoteTimeout(gathering, activeVote);
-      if (settled) {
-        gathering = await getGatheringByCode(req.params.code);
-        activeVote = null;
-      }
+    if (activeVotes && activeVotes.length > 0) {
+      const activeVoteId = (activeVotes[0] as any).id as string;
+      await settleActiveVoteIfNeeded(gathering.id, activeVoteId);
+      gathering = await getGatheringByCode(req.params.code);
     }
 
-    // 版本未变化 → 无更新
     if (gathering.version <= clientVersion) {
-      res.json({
-        success: true,
-        data: { changed: false, version: gathering.version },
-      });
+      res.json({ success: true, data: { changed: false, version: gathering.version } });
       return;
     }
 
-    // 有更新 → 返回完整状态
-    const [participantsRes, restaurantsRes, messagesRes] =
-      await Promise.all([
-        supabase
-          .from('participants')
-          .select('*')
-          .eq('gathering_id', gathering.id),
-        supabase
-          .from('restaurants')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .order('score', { ascending: false }),
-        supabase
-          .from('messages')
-          .select('*')
-          .eq('gathering_id', gathering.id)
-          .order('created_at', { ascending: false })
-          .limit(50),
-      ]);
+    const supabase = req.supabase!;
+    const [participantsRes, nominationsRes, voteRes, messagesRes] = await Promise.all([
+      supabase.from('participants').select('*').eq('gathering_id', gathering.id),
+      supabase
+        .from('nominations')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('votes')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .eq('status', VoteStatus.ACTIVE)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('messages')
+        .select('*')
+        .eq('gathering_id', gathering.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
 
-    if (participantsRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询参与者失败: ${participantsRes.error.message}`);
-    }
-    if (restaurantsRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询餐厅失败: ${restaurantsRes.error.message}`);
-    }
-    if (messagesRes.error) {
-      throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询消息失败: ${messagesRes.error.message}`);
+    if (participantsRes.error || nominationsRes.error || voteRes.error || messagesRes.error) {
+      throw new AppError(500, ErrorCode.INTERNAL_ERROR, '轮询查询失败');
     }
 
-    // 活跃投票详情
-    let voteDetail = null;
-    if (activeVote) {
-      const { data: records, error: vrErr } = await supabase
+    const nominations = (nominationsRes.data || []) as Nomination[];
+
+    let activeVote: any = null;
+    if (voteRes.data && voteRes.data.length > 0) {
+      const vote = voteRes.data[0] as Vote;
+      const { data: records } = await supabaseAdmin
         .from('vote_records')
         .select('*')
-        .eq('vote_id', activeVote.id);
-
-      if (vrErr) {
-        throw new AppError(500, ErrorCode.UNKNOWN, `轮询查询投票记录失败: ${vrErr.message}`);
-      }
-
+        .eq('vote_id', vote.id);
       const voteRecords = (records || []) as VoteRecord[];
-      voteDetail = {
-        ...activeVote,
-        agree_count: voteRecords.filter((r) => r.agree).length,
-        disagree_count: voteRecords.filter((r) => !r.agree).length,
-        total_voters: voteRecords.length,
-        has_voted: req.user
-          ? voteRecords.some((r) => r.user_id === req.user!.id)
-          : false,
+      const counts = new Map<string, number>();
+      for (const r of voteRecords) {
+        counts.set(r.nomination_id, (counts.get(r.nomination_id) || 0) + 1);
+      }
+      activeVote = {
+        ...vote,
+        vote_counts: nominations.map((n) => ({
+          nomination_id: n.id,
+          name: n.name,
+          count: counts.get(n.id) || 0,
+        })),
+        total_voted: voteRecords.length,
+        has_voted: voteRecords.some((r) => r.user_id === userId),
       };
     }
 
@@ -1281,10 +1300,10 @@ router.get('/:code/poll', async (req, res, next) => {
         changed: true,
         version: gathering.version,
         gathering,
-        participants: participantsRes.data || [],
-        restaurants: restaurantsRes.data || [],
-        active_vote: voteDetail,
-        messages: (messagesRes.data || []).reverse(),
+        participants: (participantsRes.data || []) as Participant[],
+        nominations,
+        active_vote: activeVote,
+        messages: ((messagesRes.data || []) as Message[]).reverse(),
       },
     });
   } catch (err) {

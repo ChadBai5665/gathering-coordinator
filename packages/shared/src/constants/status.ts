@@ -7,18 +7,16 @@
 export const GatheringStatus = {
   /** 等待中 - 聚会已创建，等待参与者加入 */
   WAITING: 'waiting',
-  /** 推荐中 - 正在获取餐厅推荐 */
-  RECOMMENDING: 'recommending',
+  /** 提名中 - 参与者提名餐厅 */
+  NOMINATING: 'nominating',
   /** 投票中 - 正在投票选择餐厅 */
   VOTING: 'voting',
   /** 已确认 - 餐厅已确认，等待出发 */
   CONFIRMED: 'confirmed',
-  /** 进行中 - 参与者已开始出发 */
-  ACTIVE: 'active',
+  /** 出发中 - 有人已出发 */
+  DEPARTING: 'departing',
   /** 已完成 - 聚会结束 */
   COMPLETED: 'completed',
-  /** 已取消 - 聚会被取消 */
-  CANCELLED: 'cancelled',
 } as const;
 
 export type GatheringStatus = (typeof GatheringStatus)[keyof typeof GatheringStatus];
@@ -45,10 +43,8 @@ export const PARTICIPANT_STATUS_VALUES = Object.values(ParticipantStatus);
 export const VoteStatus = {
   /** 进行中 - 投票正在进行 */
   ACTIVE: 'active',
-  /** 已通过 - 投票通过 */
-  PASSED: 'passed',
-  /** 已否决 - 投票被否决 */
-  REJECTED: 'rejected',
+  /** 已结束 - 投票已结算 */
+  RESOLVED: 'resolved',
 } as const;
 
 export type VoteStatus = (typeof VoteStatus)[keyof typeof VoteStatus];
@@ -58,26 +54,28 @@ export const VOTE_STATUS_VALUES = Object.values(VoteStatus);
 
 /** 消息类型 */
 export const MessageType = {
-  /** 系统消息 */
-  SYSTEM: 'system',
-  /** 加入通知 */
-  JOIN: 'join',
-  /** 出发通知 */
-  DEPART: 'depart',
-  /** 到达通知 */
-  ARRIVE: 'arrive',
-  /** 投票通知 */
-  VOTE: 'vote',
-  /** 投票结果 */
-  VOTE_RESULT: 'vote_result',
-  /** 餐厅确认 */
-  RESTAURANT_CONFIRMED: 'restaurant_confirmed',
-  /** 催促提醒 */
-  REMINDER: 'reminder',
-  /** 紧急催促 */
-  URGENT: 'urgent',
-  /** 里程碑（全员出发/全员到达） */
-  MILESTONE: 'milestone',
+  /** 有人加入聚会 */
+  PARTICIPANT_JOINED: 'participant_joined',
+  /** 提名阶段开始 */
+  NOMINATING_STARTED: 'nominating_started',
+  /** 有人提名餐厅 */
+  RESTAURANT_NOMINATED: 'restaurant_nominated',
+  /** 提名被撤回 */
+  NOMINATION_WITHDRAWN: 'nomination_withdrawn',
+  /** 投票已发起 */
+  VOTE_STARTED: 'vote_started',
+  /** 投票通过 */
+  VOTE_PASSED: 'vote_passed',
+  /** 投票未通过 */
+  VOTE_REJECTED: 'vote_rejected',
+  /** 有人已出发 */
+  DEPARTED: 'departed',
+  /** 有人已到达 */
+  ARRIVED: 'arrived',
+  /** 催促消息 */
+  NUDGE: 'nudge',
+  /** 全员到达 */
+  ALL_ARRIVED: 'all_arrived',
 } as const;
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];

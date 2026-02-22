@@ -11,7 +11,7 @@
     </view>
     <view class="info-item">
       <text class="info-icon">👥</text>
-      <text class="info-text">{{gathering.participant_count}}人</text>
+      <text class="info-text">{{gathering.participant_count || "-"}}人</text>
     </view>
   </view>
 

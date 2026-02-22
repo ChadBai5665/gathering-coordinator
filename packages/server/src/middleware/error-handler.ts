@@ -44,8 +44,10 @@ export function errorHandler(
   if (err instanceof AppError) {
     const body: ApiErrorResponse = {
       success: false,
-      code: err.errorCode,
-      message: err.message,
+      error: {
+        code: err.errorCode,
+        message: err.message,
+      },
     };
     res.status(err.statusCode).json(body);
     return;
@@ -56,11 +58,13 @@ export function errorHandler(
 
   const body: ApiErrorResponse = {
     success: false,
-    code: ErrorCode.UNKNOWN,
-    message:
-      config.nodeEnv === 'development'
-        ? err.message || '服务器内部错误'
-        : '服务器内部错误，请稍后重试',
+    error: {
+      code: ErrorCode.INTERNAL_ERROR,
+      message:
+        config.nodeEnv === 'development'
+          ? err.message || ERROR_MESSAGES[ErrorCode.INTERNAL_ERROR]
+          : ERROR_MESSAGES[ErrorCode.INTERNAL_ERROR],
+    },
   };
   res.status(500).json(body);
 }

@@ -1,4 +1,4 @@
-﻿Component({
+Component({
   properties: {
     status: {
       type: String,
@@ -6,7 +6,7 @@
     },
     type: {
       type: String,
-      value: 'gathering', // 'gathering' | 'participant'
+      value: 'gathering',
     },
   },
 
@@ -22,17 +22,14 @@
   },
 
   methods: {
-    updateStatus(status: string, type: string) {
+    updateStatus(status: string, _type: string) {
       const statusMap: Record<string, { text: string; class: string }> = {
-        // Gathering statuses
         waiting: { text: '等待中', class: 'waiting' },
-        recommending: { text: '推荐中', class: 'recommending' },
+        nominating: { text: '提名中', class: 'nominating' },
         voting: { text: '投票中', class: 'voting' },
         confirmed: { text: '已确认', class: 'confirmed' },
-        active: { text: '进行中', class: 'active' },
+        departing: { text: '出发中', class: 'departing' },
         completed: { text: '已完成', class: 'completed' },
-        cancelled: { text: '已取消', class: 'cancelled' },
-        // Participant statuses
         joined: { text: '已加入', class: 'joined' },
         departed: { text: '已出发', class: 'departed' },
         arrived: { text: '已到达', class: 'arrived' },

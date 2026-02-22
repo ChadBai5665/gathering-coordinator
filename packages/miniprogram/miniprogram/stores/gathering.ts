@@ -1,12 +1,12 @@
 /**
- * 聚会状态管理
+ * 聚会状态管理（v2）
  */
 
 import type {
-  GatheringDetail,
+  Gathering,
   Participant,
-  Restaurant,
-  VoteDetail,
+  Nomination,
+  ActiveVote,
   Message,
 } from '../services/types';
 import * as api from '../services/api';
@@ -14,10 +14,10 @@ import * as api from '../services/api';
 type GatheringListener = (state: GatheringState) => void;
 
 export interface GatheringState {
-  gathering: GatheringDetail | null;
+  gathering: Gathering | null;
   participants: Participant[];
-  restaurants: Restaurant[];
-  activeVote: VoteDetail | null;
+  nominations: Nomination[];
+  activeVote: ActiveVote | null;
   messages: Message[];
   version: number;
   loading: boolean;
@@ -27,7 +27,7 @@ class GatheringStore {
   private state: GatheringState = {
     gathering: null,
     participants: [],
-    restaurants: [],
+    nominations: [],
     activeVote: null,
     messages: [],
     version: 0,
@@ -55,7 +55,7 @@ class GatheringStore {
         this.state = {
           gathering: response.gathering || null,
           participants: response.participants || [],
-          restaurants: response.restaurants || [],
+          nominations: response.nominations || [],
           activeVote: response.active_vote || null,
           messages: response.messages || [],
           version: this.normalizeVersion(response.version, this.state.version),
@@ -68,6 +68,7 @@ class GatheringStore {
           loading: false,
         };
       }
+
       this.notify();
     } catch (error) {
       this.state.loading = false;
@@ -86,7 +87,7 @@ class GatheringStore {
           this.state = {
             gathering: response.gathering || null,
             participants: response.participants || [],
-            restaurants: response.restaurants || [],
+            nominations: response.nominations || [],
             activeVote: response.active_vote || null,
             messages: response.messages || [],
             version: this.normalizeVersion(response.version, this.state.version),
@@ -104,7 +105,6 @@ class GatheringStore {
       }
     };
 
-    // 每 3 秒轮询一次
     this.pollTimer = setInterval(doPoll, 3000) as any;
   }
 
@@ -135,7 +135,7 @@ class GatheringStore {
     this.state = {
       gathering: null,
       participants: [],
-      restaurants: [],
+      nominations: [],
       activeVote: null,
       messages: [],
       version: 0,

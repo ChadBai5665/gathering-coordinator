@@ -22,6 +22,11 @@ App<IAppOption>({
   },
 
   getApiBaseUrl(): string {
+    const customApiBaseUrl = wx.getStorageSync('apiBaseUrl');
+    if (typeof customApiBaseUrl === 'string' && customApiBaseUrl.trim()) {
+      return customApiBaseUrl.trim();
+    }
+
     // 根据环境返回不同的 API 地址
     const envVersion = __wxConfig?.envVersion || 'release';
     const urlMap: Record<string, string> = {

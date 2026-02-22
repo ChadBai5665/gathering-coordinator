@@ -29,10 +29,13 @@ export interface ApiSuccessResponse<T = unknown> {
 export interface ApiErrorResponse {
   /** 是否成功 */
   success: false;
-  /** 错误码 */
-  code: string;
-  /** 错误信息 */
-  message: string;
+  /** 错误对象（v2 规范） */
+  error: {
+    /** 错误码 */
+    code: string;
+    /** 错误信息 */
+    message: string;
+  };
 }
 
 /** 统一 API 响应类型 */

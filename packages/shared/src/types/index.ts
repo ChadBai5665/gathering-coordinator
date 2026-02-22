@@ -3,6 +3,9 @@ export type {
   CreateGatheringParams,
   JoinGatheringParams,
   GatheringDetail,
+  ActiveVote,
+  GatheringState,
+  PollState,
 } from './gathering.js';
 
 export type {
@@ -13,17 +16,25 @@ export type {
 } from './participant.js';
 
 export type {
-  Restaurant,
+  Nomination,
+  NominationSource,
   TravelInfo,
+  SearchRestaurantResult,
+  AiSuggestion,
+} from './nomination.js';
+
+export type {
+  Restaurant,
   SearchRestaurantParams,
 } from './restaurant.js';
 
 export type {
   Vote,
   VoteRecord,
-  CreateVoteParams,
   CastVoteParams,
-  VoteDetail,
+  VoteResult,
+  VoteCountItem,
+  VoteWinnerResult,
 } from './vote.js';
 
 export type {

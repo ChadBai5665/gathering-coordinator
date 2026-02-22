@@ -40,6 +40,8 @@ export interface AppConfig {
   port: number;
   /** 运行环境 */
   nodeEnv: 'development' | 'production' | 'test';
+  /** AI 推荐提供方（P0 默认 rules） */
+  aiProvider: 'rules' | 'llm';
 }
 
 /**
@@ -75,6 +77,7 @@ function loadConfig(): AppConfig {
     wxSecret: optionalEnv('WX_SECRET', ''),
     port: parseInt(optionalEnv('PORT', '3000'), 10),
     nodeEnv: optionalEnv('NODE_ENV', 'development') as AppConfig['nodeEnv'],
+    aiProvider: (optionalEnv('AI_PROVIDER', 'rules') as AppConfig['aiProvider']),
   };
 }
 

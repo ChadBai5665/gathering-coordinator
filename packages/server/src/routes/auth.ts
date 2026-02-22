@@ -14,7 +14,7 @@ import {
   validateNickname,
   NICKNAME_MAX_LENGTH,
 } from '@ontheway/shared';
-import type { AuthResponse, UserProfile } from '@ontheway/shared';
+import type { UserProfile } from '@ontheway/shared';
 
 const router: RouterType = Router();
 
@@ -68,7 +68,7 @@ async function ensureProfile(
     .single();
 
   if (error) {
-    throw new AppError(500, ErrorCode.UNKNOWN, `创建用户资料失败: ${error.message}`);
+    throw new AppError(500, ErrorCode.INTERNAL_ERROR, `创建用户资料失败: ${error.message}`);
   }
 
   return data as UserProfile;
@@ -97,7 +97,7 @@ router.post('/guest', validate(guestSchema), async (req, res, next) => {
     if (authError || !authData.session || !authData.user) {
       throw new AppError(
         500,
-        ErrorCode.UNKNOWN,
+        ErrorCode.INTERNAL_ERROR,
         `创建匿名用户失败: ${authError?.message || '无 session'}`,
       );
     }
@@ -107,13 +107,13 @@ router.post('/guest', validate(guestSchema), async (req, res, next) => {
     // 创建 profile
     const profile = await ensureProfile(user.id, nickname.trim());
 
-    const response: AuthResponse = {
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      user: profile,
-    };
-
-    res.status(201).json({ success: true, data: response });
+    res.status(201).json({
+      success: true,
+      data: {
+        token: session.access_token,
+        user: profile,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -137,7 +137,7 @@ router.post('/wechat', validate(wechatSchema), async (req, _res, next) => {
     // 临时：返回未实现错误
     throw new AppError(
       501,
-      ErrorCode.UNKNOWN,
+      ErrorCode.INTERNAL_ERROR,
       '微信登录尚未实现，请使用匿名登录。需要配置 WX_APPID 和 WX_SECRET 后启用。',
     );
 

@@ -36,12 +36,11 @@ export default function JoinPage() {
         const { joinGathering } = await import('@/services/api');
         await joinGathering(normalizedCode, {
           nickname: user?.nickname ?? '用户',
-          tastes: user?.preferences?.default_tastes ?? [],
         });
         navigate(`/dashboard/${normalizedCode}`, { replace: true });
       } catch (err: any) {
         // 如果已经是参与者，直接跳转
-        if (err?.code === 'ERR_ALREADY_JOINED' || err?.message?.includes('已加入')) {
+        if (err?.code === 'ALREADY_JOINED' || err?.message?.includes('已加入')) {
           navigate(`/dashboard/${normalizedCode}`, { replace: true });
           return;
         }

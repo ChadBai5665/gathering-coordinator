@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           const res = await api.guestLogin(nickname);
           set({
             user: res.user,
-            token: res.access_token,
+            token: res.token,
             isAuthenticated: true,
             isLoading: false,
           });
