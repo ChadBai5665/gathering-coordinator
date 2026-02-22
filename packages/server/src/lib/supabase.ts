@@ -40,3 +40,16 @@ export function createSupabaseClient(token: string): SupabaseClient {
     },
   });
 }
+
+/**
+ * 创建匿名/公开客户端
+ * 仅用于匿名登录等需要 anon key 的认证调用，避免污染 admin 客户端会话。
+ */
+export function createPublicSupabaseClient(): SupabaseClient {
+  return createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}

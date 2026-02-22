@@ -8,7 +8,7 @@ import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import { AppError } from '../middleware/error-handler.js';
-import { supabaseAdmin } from '../lib/supabase.js';
+import { createPublicSupabaseClient, supabaseAdmin } from '../lib/supabase.js';
 import {
   ErrorCode,
   validateNickname,
@@ -90,9 +90,10 @@ router.post('/guest', validate(guestSchema), async (req, res, next) => {
       throw new AppError(400, ErrorCode.INVALID_NICKNAME, nicknameResult.message);
     }
 
-    // 创建匿名用户
+    // 使用独立 anon 客户端创建匿名用户，避免污染 admin 客户端会话。
+    const publicClient = createPublicSupabaseClient();
     const { data: authData, error: authError } =
-      await supabaseAdmin.auth.signInAnonymously();
+      await (publicClient.auth as any).signInAnonymously();
 
     if (authError || !authData.session || !authData.user) {
       throw new AppError(
