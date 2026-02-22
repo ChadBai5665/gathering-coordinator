@@ -123,6 +123,10 @@ CREATE INDEX IF NOT EXISTS nominations_nominated_by_idx ON nominations(nominated
 -- 4. votes: choice-voting
 -- ===========================================
 
+-- Drop policies that depend on legacy votes columns before dropping columns.
+DROP POLICY IF EXISTS "votes_insert" ON votes;
+DROP POLICY IF EXISTS "votes_insert_service" ON votes;
+
 ALTER TABLE votes
   DROP CONSTRAINT IF EXISTS votes_status_check;
 
@@ -274,4 +278,3 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE nominations;
   END IF;
 END $$;
-
