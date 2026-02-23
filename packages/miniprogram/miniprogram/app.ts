@@ -30,9 +30,9 @@ App<IAppOption>({
     // 根据环境返回不同的 API 地址
     const envVersion = __wxConfig?.envVersion || 'release';
     const urlMap: Record<string, string> = {
-      develop: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',  // 开发环境也使用生产 API
-      trial: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
-      release: 'https://gathering-coordinator-chadbais-projects.vercel.app/api',
+      develop: 'https://ontheway.chadbai.com/api',
+      trial: 'https://ontheway.chadbai.com/api',
+      release: 'https://ontheway.chadbai.com/api',
     };
     return urlMap[envVersion] || urlMap.release;
   },
