@@ -3,6 +3,8 @@
 Page({
   data: {
     userInfo: null as IUserInfo | null,
+    avatarText: '',
+    shortUserId: '',
   },
 
   onLoad() {
@@ -13,17 +15,22 @@ Page({
       return;
     }
 
-    this.setData({
-      userInfo: authStore.userInfo,
-    });
+    this.syncUserInfo();
   },
 
   onShow() {
     if (authStore.isLoggedIn) {
-      this.setData({
-        userInfo: authStore.userInfo,
-      });
+      this.syncUserInfo();
     }
+  },
+
+  syncUserInfo() {
+    const userInfo = authStore.userInfo;
+    this.setData({
+      userInfo,
+      avatarText: (userInfo?.nickname || '?').slice(0, 1),
+      shortUserId: userInfo?.id ? userInfo.id.slice(0, 8) : '',
+    });
   },
 
   onEditProfile() {

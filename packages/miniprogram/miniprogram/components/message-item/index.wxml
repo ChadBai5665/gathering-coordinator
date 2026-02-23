@@ -2,6 +2,6 @@
   <view class="message-icon">{{iconText}}</view>
   <view class="message-content">
     <view class="message-text">{{message.content}}</view>
-    <view class="message-time">{{formatTime(message.created_at)}}</view>
+    <view class="message-time">{{timeText}}</view>
   </view>
 </view>

@@ -14,6 +14,8 @@ Page({
     myNominationCount: 0,
     canStartVoting: false,
     confirmedNomination: null as Nomination | null,
+    targetTimeText: '',
+    participantsView: [] as any[],
 
     searchKeyword: '',
     searchResults: [] as SearchRestaurantResult[],
@@ -87,6 +89,11 @@ Page({
     );
 
     const confirmedNomination = state.nominations.find((n) => n.is_confirmed) || null;
+    const participantsView = state.participants.map((p) => ({
+      ...p,
+      avatarText: (p.nickname || '?').slice(0, 1),
+    }));
+    const targetTimeText = this.formatTime(state.gathering?.target_time || '');
 
     const voteCounts: Record<string, number> = {};
     for (const nomination of state.nominations) {
@@ -107,6 +114,8 @@ Page({
       canStartVoting,
       confirmedNomination,
       voteCounts,
+      targetTimeText,
+      participantsView,
     });
 
     this.updateMapMarkers(state);

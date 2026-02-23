@@ -7,11 +7,11 @@
   <view class="card-info">
     <view class="info-item">
       <text class="info-icon">🕐</text>
-      <text class="info-text">{{formatTime(gathering.target_time)}}</text>
+      <text class="info-text">{{targetTimeText}}</text>
     </view>
     <view class="info-item">
       <text class="info-icon">👥</text>
-      <text class="info-text">{{gathering.participant_count || "-"}}人</text>
+      <text class="info-text">{{participantCountText}}人</text>
     </view>
   </view>
 

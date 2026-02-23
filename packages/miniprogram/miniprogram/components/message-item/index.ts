@@ -12,6 +12,7 @@ Component({
   data: {
     iconText: 'i',
     messageClass: 'system',
+    timeText: '',
   },
 
   observers: {
@@ -35,6 +36,7 @@ Component({
       this.setData({
         iconText: iconMap[message.type] || 'i',
         messageClass: message.type,
+        timeText: this.formatTime(message.created_at),
       });
     },
   },

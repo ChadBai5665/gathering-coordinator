@@ -8,6 +8,27 @@ Component({
     },
   },
 
+  data: {
+    targetTimeText: '',
+    participantCountText: '-',
+  },
+
+  observers: {
+    gathering(gathering: WechatMiniprogram.IAnyObject) {
+      if (!gathering) return;
+
+      const participantCountText =
+        typeof gathering.participant_count === 'number'
+          ? String(gathering.participant_count)
+          : '-';
+
+      this.setData({
+        targetTimeText: this.formatTime(gathering.target_time as string),
+        participantCountText,
+      });
+    },
+  },
+
   methods: {
     formatTime(timeStr: string): string {
       if (!timeStr) return '';

@@ -1,5 +1,5 @@
 <view class="dashboard-page">
-  <nav-bar title="{{state ? state.gathering.name : "聚会"}}" />
+  <nav-bar title="{{state ? state.gathering.name : '聚会'}}" />
 
   <view class="content" wx:if="{{!loading && state}}">
     <view class="info-card">
@@ -10,7 +10,7 @@
 
       <view class="info-row">
         <text class="info-label">目标时间</text>
-        <text class="info-value">{{formatTime(state.gathering.target_time)}}</text>
+        <text class="info-value">{{targetTimeText}}</text>
       </view>
 
       <view class="info-row">
@@ -25,8 +25,8 @@
     <view class="section">
       <view class="section-title">参与者 ({{state.participants.length}})</view>
       <view class="participants">
-        <view class="participant-item" wx:for="{{state.participants}}" wx:key="id">
-          <view class="participant-avatar">{{item.nickname.charAt(0)}}</view>
+        <view class="participant-item" wx:for="{{participantsView}}" wx:key="id">
+          <view class="participant-avatar">{{item.avatarText}}</view>
           <view class="participant-info">
             <text class="participant-name">{{item.nickname}}</text>
             <status-tag status="{{item.status}}" type="participant" />
