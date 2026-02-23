@@ -8,6 +8,8 @@ Page({
     code: '',
     state: null as GatheringState | null,
     loading: true,
+    gatheringTitle: '聚会',
+    gatheringStatus: '',
 
     me: null as any,
     isCreator: false,
@@ -92,7 +94,14 @@ Page({
     const participantsView = state.participants.map((p) => ({
       ...p,
       avatarText: (p.nickname || '?').slice(0, 1),
+      status: typeof p.status === 'string' ? p.status : '',
     }));
+    const gatheringTitle =
+      typeof state.gathering?.name === 'string' && state.gathering.name.trim()
+        ? state.gathering.name
+        : '聚会';
+    const gatheringStatus =
+      typeof state.gathering?.status === 'string' ? state.gathering.status : '';
     const targetTimeText = this.formatTime(state.gathering?.target_time || '');
 
     const voteCounts: Record<string, number> = {};
@@ -108,6 +117,8 @@ Page({
     this.setData({
       state,
       loading: false,
+      gatheringTitle,
+      gatheringStatus,
       me,
       isCreator,
       myNominationCount,
@@ -170,7 +181,7 @@ Page({
         id: index,
         latitude: p.location.lat,
         longitude: p.location.lng,
-        iconPath: '/assets/icons/user-marker.png',
+        iconPath: 'assets/icons/user-marker.png',
         width: 30,
         height: 30,
         label: {
@@ -189,11 +200,12 @@ Page({
     });
 
     state.nominations.forEach((n, index) => {
+      if (!n.location) return;
       markers.push({
         id: 1000 + index,
         latitude: n.location.lat,
         longitude: n.location.lng,
-        iconPath: '/assets/icons/restaurant-marker.png',
+        iconPath: 'assets/icons/restaurant-marker.png',
         width: 35,
         height: 35,
         label: {

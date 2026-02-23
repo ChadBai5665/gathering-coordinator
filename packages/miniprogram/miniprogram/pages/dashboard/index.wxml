@@ -1,10 +1,10 @@
 <view class="dashboard-page">
-  <nav-bar title="{{state ? state.gathering.name : '聚会'}}" />
+  <nav-bar title="{{gatheringTitle}}" />
 
   <view class="content" wx:if="{{!loading && state}}">
     <view class="info-card">
       <view class="info-header">
-        <status-tag status="{{state.gathering.status}}" type="gathering" />
+        <status-tag status="{{gatheringStatus}}" type="gathering" />
         <button class="share-btn" open-type="share">分享</button>
       </view>
 

@@ -11,6 +11,7 @@ Component({
   data: {
     targetTimeText: '',
     participantCountText: '-',
+    statusText: '',
   },
 
   observers: {
@@ -25,6 +26,7 @@ Component({
       this.setData({
         targetTimeText: this.formatTime(gathering.target_time as string),
         participantCountText,
+        statusText: typeof gathering.status === 'string' ? gathering.status : '',
       });
     },
   },

@@ -1,7 +1,7 @@
 <view class="gathering-card" bindtap="onCardTap">
   <view class="card-header">
     <view class="card-title">{{gathering.name}}</view>
-    <status-tag status="{{gathering.status}}" type="gathering" />
+    <status-tag status="{{statusText}}" type="gathering" />
   </view>
 
   <view class="card-info">
